@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChitChatBot</title>
+<meta name="description" content="Free Chrome and Brave extension that translates Kick, Twitch and YouTube live chat in place, and lets you write back in the chat's language. Runs on your device.">
+<link rel="canonical" href="https://chitchatbot.live/">
+<link rel="icon" type="image/png" href="favicon.png">
+<meta property="og:title" content="ChitChatBot">
+<meta property="og:description" content="Chat in every language. Free translation for Kick, Twitch and YouTube live chat.">
+<meta property="og:image" content="https://chitchatbot.live/logo.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="brand" href="index.html"><img src="icon.png" alt="">ChitChatBot</a>
+  <nav aria-label="Site"><a href="#how">How it works</a><a href="#see">What you see</a><a href="#where">Where</a><a href="faq.html">FAQ</a><a class="btn primary" href="faq.html#install">Get it free</a></nav>
+</div></header>
+
+<main class="wrap">
+  <section class="hero1">
+    <img class="logoimg" src="logo.png" alt="ChitChatBot" width="360">
+    <h1>Chat in every language.</h1>
+    <p class="lede">A free extension that translates Kick, Twitch and YouTube live chat right where it appears, and lets you type in your own language and send in the chat's.</p>
+    <div class="cta">
+      <a class="btn primary" href="faq.html#install">Get the extension</a>
+      <a class="btn" href="#see">See how it looks</a>
+    </div>
+    <p class="small" style="margin-top:12px">Free. Chrome and Brave on desktop. Everything runs on your device.</p>
+
+    <div class="herochat site-kick" data-wrap>
+      <div class="pt" role="group" aria-label="Platform"><button type="button" data-p="kick" aria-pressed="true">Kick</button><button type="button" data-p="twitch" aria-pressed="false">Twitch</button><button type="button" data-p="youtube" aria-pressed="false">YouTube</button></div>
+      <div class="chat" role="img" aria-label="Chat where Spanish and Japanese messages have an English translation underneath">
+        <div class="cap">Live chat</div>
+        <div class="msg"><span class="t">12:15</span><span class="u" style="color:#f0587e">Rob3rtoJ:</span>que buena jugada de Messi
+          <div class="tr"><span class="tag">ES &gt; EN</span>what a great play by Messi</div></div>
+        <div class="msg"><span class="t">12:16</span><span class="u" style="color:#ffb454">yuki_t:</span>今日の配信最高です
+          <div class="tr"><span class="tag">JA &gt; EN</span>Today's stream is the best</div></div>
+        <div class="msg"><span class="t">12:16</span><span class="u" style="color:#5fa8ff">kejosrt:</span>lol same
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="s" id="how" aria-labelledby="ht">
+    <span class="pill">HOW IT WORKS</span>
+    <h2 id="ht" style="margin-top:8px">Three steps, then forget about it</h2>
+    <ol class="steps3">
+      <li><b>1</b><div><h3>Add it</h3><p>Install the extension in Chrome or Brave and pin it to your toolbar.</p></div></li>
+      <li><b>2</b><div><h3>Pick your language</h3><p>The first time a language is needed, click the bar above the chat box. Each language downloads once.</p></div></li>
+      <li><b>3</b><div><h3>Just watch</h3><p>Messages in other languages get a translation under them, in the color of the site you are on.</p></div></li>
+    </ol>
+  </section>
+
+  <section class="s" id="see" aria-labelledby="st">
+    <span class="pill">WHAT YOU SEE</span>
+    <h2 id="st" style="margin-top:8px">Read it. Write it.</h2>
+    <div class="split">
+      <div class="site-kick" data-wrap>
+        <div class="pt" role="group" aria-label="Platform"><button type="button" data-p="kick" aria-pressed="true">Kick</button><button type="button" data-p="twitch" aria-pressed="false">Twitch</button><button type="button" data-p="youtube" aria-pressed="false">YouTube</button></div>
+        <div class="chat" role="img" aria-label="Translation lines under foreign messages">
+          <div class="cap">Reading</div>
+          <div class="msg"><span class="t">12:15</span><span class="u" style="color:#f0587e">Rob3rtoJ:</span>que buena jugada de Messi
+            <div class="tr"><span class="tag">ES &gt; EN</span>what a great play by Messi</div></div>
+          <div class="msg"><span class="t">12:16</span><span class="u" style="color:#ffb454">yuki_t:</span>今日の配信最高です
+            <div class="tr"><span class="tag">JA &gt; EN</span>Today's stream is the best</div></div>
+        </div>
+        <p class="note">Show the translation under the original, or replace it. Replies are translated too. Emotes and the language tag can be turned off.</p>
+      </div>
+      <div class="site-kick" data-wrap>
+        <div class="pt" role="group" aria-label="Platform"><button type="button" data-p="kick" aria-pressed="true">Kick</button><button type="button" data-p="twitch" aria-pressed="false">Twitch</button><button type="button" data-p="youtube" aria-pressed="false">YouTube</button></div>
+        <div class="chat" role="img" aria-label="Write mode previews a Spanish translation above the chat box">
+          <div class="cap">Writing</div>
+          <div class="msg" style="min-height:64px"><span class="t">12:17</span><span class="u" style="color:#5fa8ff">kejosrt:</span>hola desde Mexico, saludos</div>
+          <div class="pv">
+            <div class="pvtop"><span class="tag">EN &gt; ES</span><span>Will be sent as</span></div>
+            <div>Hola, ¿cómo están todos?</div>
+            <div class="pvbtn"><span class="go p">Send in Spanish</span><span class="go">Send as I wrote it</span></div>
+          </div>
+          <div class="inp">hello, how is everyone?</div>
+        </div>
+        <p class="note">Type in your language, send in the chat's. It picks the chat's language by itself, or you choose one.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="s" id="where" aria-labelledby="wt">
+    <span class="pill">WHERE IT WORKS</span>
+    <h2 id="wt" style="margin-top:8px">Three platforms, one extension</h2>
+    <div class="plat">
+      <div class="card k"><h3>Kick</h3><p>Green lines under each message. Works in the main chat.</p></div>
+      <div class="card t"><h3>Twitch</h3><p>Purple lines, matched to the chat's size and font.</p></div>
+      <div class="card y"><h3>YouTube</h3><p>Red lines in live chat, including the pop-out chat window.</p></div>
+    </div>
+    <p class="small" style="margin:14px 0 0">English, Spanish, Portuguese, French, German, Italian, Dutch, Polish, Turkish, Russian, Ukrainian, Arabic, Hindi, Indonesian, Vietnamese, Thai, Japanese, Korean and Chinese.</p>
+  </section>
+
+  <section class="s" aria-labelledby="pt">
+    <span class="pill">PRIVATE</span>
+    <h2 id="pt" style="margin-top:8px">Nothing leaves your computer</h2>
+    <p class="lede" style="font-size:16px">Translation uses the translator built into your browser. We don't run a server for it, there are no accounts and no analytics. <a href="privacy.html">Read the privacy page</a>.</p>
+    <div class="cta">
+      <a class="btn primary" href="faq.html#install">Get the extension</a>
+      <a class="btn" href="faq.html">Questions</a>
+    </div>
+  </section>
+</main>
+
+<footer class="site"><div class="wrap">
+  <span>ChitChatBot is not affiliated with Kick, Twitch or YouTube.</span>
+  <span><a href="faq.html">FAQ</a> · <a href="privacy.html">Privacy</a> · <a href="https://kick.com/pablovintura">Made by PabloVintura</a></span>
+</div></footer>
+
+<script>
+document.querySelectorAll('[data-wrap]').forEach(function (w) {
+  w.querySelectorAll('.pt button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      w.querySelectorAll('.pt button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      w.className = w.className.replace(/site-\w+/, 'site-' + b.dataset.p);
+    });
+  });
+});
+</script>
+</body>
+</html>
