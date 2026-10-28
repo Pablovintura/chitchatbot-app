@@ -98,3 +98,28 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 
 .bdgs{display:none;margin-right:5px;vertical-align:-3px}.site-kick .bdgs{display:inline}.bdgs img{height:18px;width:auto;vertical-align:-4px}
 .soonchat .chat{border:2px solid transparent;background:linear-gradient(#0d1213,#0d1213) padding-box,linear-gradient(90deg,#53fc18 50%,#9146ff 50%) border-box}
+
+/* write-back composer, styled after each site */
+.cmp{display:none;margin:0 8px;color:#e8ecec;font-size:14px}
+.site-kick .cmp-kick,.site-twitch .cmp-twitch,.site-youtube .cmp-yt{display:block}
+.cmp .ic{width:20px;height:20px;flex:none;display:block}
+.cmp .sp{flex:1}
+.cmp .typed{flex:1;min-width:0;overflow-wrap:anywhere}
+.cmp .typed .emo{height:1.5em}
+.kbox{display:flex;align-items:center;gap:14px;padding:11px 12px;border:2px solid #a3a7ab;border-radius:8px;background:#0b0e0f}
+.kbox .kshield{width:26px;height:26px}.kbox>.ic:last-child{color:#fff}
+.krow{display:flex;align-items:center;gap:18px;padding:12px 8px 2px;color:#fff}
+.kstat{display:flex;align-items:center;gap:8px;font-weight:600}.kstat .ic{width:20px;height:20px}
+.kcoin{width:22px;height:22px;border-radius:50%;background:conic-gradient(#53fc18,#19d3ff,#9146ff,#53fc18);display:grid;place-items:center;color:#111;font:800 12px/1 system-ui}
+.kgear .ic{width:22px;height:22px;color:#fff}
+.kchat{background:#53fc18;color:#0a1a03;font-weight:800;padding:8px 18px;border-radius:6px}
+.tbox{display:flex;align-items:center;gap:10px;padding:9px 12px;border:2px solid #4a4a52;border-radius:6px;background:#26262c}
+.tbox>.ic:last-child{color:#adadb8}
+.trow{display:flex;align-items:center;gap:12px;padding:10px 2px 2px;color:#adadb8}
+.tgear .ic{width:20px;height:20px}
+.tchat{background:#9146ff;color:#fff;font-weight:700;padding:7px 14px;border-radius:5px}
+.yid{display:flex;align-items:center;gap:8px;color:#aaa;font-size:13px;padding:4px 2px 6px}
+.yav{width:24px;height:24px;border-radius:50%;background:#f4511e;color:#fff;display:grid;place-items:center;font:700 12px/1 system-ui}
+.ybox{padding:6px 12px 8px;border-radius:8px 8px 0 0;background:#272727;border-bottom:2px solid #ff4040}
+.yrow{display:flex;align-items:center;gap:10px;padding:8px 4px 2px;color:#aaa}
+.yic .ic{width:22px;height:22px}.ycount{font-size:12px}.ysend .ic{width:22px;height:22px;color:#f1f1f1}
