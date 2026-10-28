@@ -125,3 +125,4 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 .yic .ic{width:22px;height:22px}.ycount{font-size:12px}.ysend .ic{width:22px;height:22px;color:#f1f1f1}
 .bdt,.bdy{display:none;margin-right:5px;vertical-align:-3px}.bdt svg,.bdy svg{width:18px;height:18px;vertical-align:-4px}.site-twitch .bdt,.site-youtube .bdy{display:inline}
 .bdk{display:none;margin-right:5px}.site-kick .bdk{display:inline}.bdk svg{width:18px;height:18px;vertical-align:-4px}
+.soonchat .show{display:inline!important}
