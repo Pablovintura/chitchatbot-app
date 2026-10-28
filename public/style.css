@@ -130,3 +130,9 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 .bdgs img,.bdt svg,.bdy svg,.bdk svg{vertical-align:middle;display:inline-block}
 .bdgs,.bdt,.bdy,.bdk{position:relative;top:-2px}
 .nw{white-space:nowrap}
+
+.rq{margin:0 0 6px;padding:4px 9px;border-left:3px solid #56636a;background:rgba(255,255,255,.05);border-radius:0 8px 8px 0;color:var(--muted);font-size:.88em;line-height:1.4}
+.rq .rqh{display:block;font-size:.85em;font-weight:700;letter-spacing:.02em;color:#8fa0a6}
+.rq .rqt{color:rgb(var(--p));margin-top:1px}
+.cmp .emo,.pv .emo{height:2em;vertical-align:-.6em}
+.site-youtube .rmsg{display:none}
