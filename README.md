@@ -17,12 +17,3 @@ npm run dev
 ## Database
 
 Run `supabase/schema.sql` once in the Supabase SQL Editor.
-
-## Milestones
-
-1. Foundation (this one): project, database tables, brand styling
-2. Sign in with Kick
-3. Bot: read chat, translate, reply
-4. Dashboard settings
-5. Twitch
-6. Plans and Stripe
