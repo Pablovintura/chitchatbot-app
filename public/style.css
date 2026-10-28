@@ -128,3 +128,4 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 .soonchat .show{display:inline!important}
 .bdgs,.bdt,.bdy,.bdk{vertical-align:middle;line-height:0;margin-right:5px}
 .bdgs img,.bdt svg,.bdy svg,.bdk svg{vertical-align:middle;display:inline-block}
+.bdgs,.bdt,.bdy,.bdk{position:relative;top:-2px}
