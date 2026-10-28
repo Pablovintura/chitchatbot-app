@@ -97,3 +97,4 @@ body.home{position:relative}
 body.home header.site,body.home main,body.home footer.site{position:relative;z-index:1}
 
 .bdgs{display:none;margin-right:5px;vertical-align:-3px}.site-kick .bdgs{display:inline}.bdgs img{height:18px;width:auto;vertical-align:-4px}
+.soonchat .chat{border:2px solid transparent;background:linear-gradient(#0d1213,#0d1213) padding-box,linear-gradient(90deg,#53fc18 50%,#9146ff 50%) border-box}
