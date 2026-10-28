@@ -70,3 +70,12 @@ code{font-family:var(--mono);font-size:.92em;background:var(--card);border:1px s
 footer.site{border-top:1px solid var(--line);margin-top:40px;padding:22px 0 40px;color:var(--muted);font-size:13.5px}
 footer.site .wrap{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between}
 .herologo{display:block;width:min(320px,70%);height:auto;margin:0 0 18px}
+
+/* updates log */
+ol.log{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:0;max-width:720px}
+ol.log>li{display:grid;grid-template-columns:140px minmax(0,1fr);gap:20px;padding:20px 0;border-top:1px solid var(--line)}
+ol.log .when{display:flex;flex-direction:column;gap:2px}
+ol.log .when span{color:var(--muted);font-size:13.5px}
+ol.log ul{margin:0;padding-left:18px}
+ol.log ul li{margin:0 0 6px;color:#cdd8d8}
+@media (max-width:600px){ol.log>li{grid-template-columns:minmax(0,1fr);gap:8px}}
