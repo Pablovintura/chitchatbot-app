@@ -43,5 +43,6 @@ export async function POST(req: NextRequest) {
   const { error } = await db().from('settings').upsert(row, { onConflict: 'channel_id' });
   if (error) return NextResponse.json({ error: 'Could not save.' }, { status: 500 });
   dropSettingsCache(ch.id);
+  if ('enabled' in row) await db().from('settings').update({ toggled_by: 'the dashboard', toggled_at: new Date().toISOString() }).eq('channel_id', ch.id).then(() => {}, () => {}); // note only; fine if the columns aren't there yet
   return NextResponse.json({ ok: true, skip: row.skip_list });
 }

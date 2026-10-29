@@ -2,12 +2,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Status = {
-  connected: boolean; platform?: 'kick' | 'twitch'; channels?: { platform: 'kick' | 'twitch'; name: string }[]; kickReady?: boolean; twitchReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
-  enabled?: boolean; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[];
+  connected: boolean; platform?: 'kick' | 'twitch'; channels?: { platform: 'kick' | 'twitch'; name: string; enabled?: boolean; by?: string; at?: string }[]; kickReady?: boolean; twitchReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
+  enabled?: boolean; by?: string; at?: string; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[];
 };
 
 const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
 const PAUSES: [number, string][] = [[0, 'None'], [10, '10 sec'], [30, '30 sec'], [60, '1 min'], [120, '2 min'], [300, '5 min']];
+const ago = (iso?: string) => {
+  const m = iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 60000) : NaN;
+  if (!Number.isFinite(m)) return '';
+  if (m < 1) return ', just now';
+  if (m < 60) return `, ${m} min ago`;
+  if (m < 1440) return `, ${Math.floor(m / 60)} h ago`;
+  return `, ${Math.floor(m / 1440)} d ago`;
+};
+// "On. Switched on from the dashboard." / "Off. Paused from Kick chat, 2 min ago."
+const stateLine = (c: { enabled?: boolean; by?: string; at?: string }) =>
+  c.enabled ? `On. ${c.by ? `Switched on from ${c.by}${ago(c.at)}.` : 'Translating chat.'}` : `Off. ${c.by ? `${c.by === 'the dashboard' ? 'Switched off' : 'Paused'} from ${c.by}${ago(c.at)}.` : 'Chat is on its own.'}`;
 const NOTES: Record<string, string> = { connected: 'Kick connected.', denied: 'Kick sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Kick.' };
 const TNOTES: Record<string, string> = { connected: 'Twitch connected.', denied: 'Twitch sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Twitch.', botok: 'The bot account is set. Now streamers can connect.' };
 
@@ -29,17 +40,25 @@ export default function Dashboard() {
     load(new URLSearchParams(location.search).get('twitch') ? 'twitch' : undefined);
     const onFocus = () => load(viewRef.current || undefined); // !translate in chat changes the switch, so refresh when you come back
     window.addEventListener('focus', onFocus);
+    const tick = setInterval(() => { if (document.visibilityState === 'visible') load(viewRef.current || undefined); }, 20000); // a chat command flips a card without anyone touching the page
     const k = new URLSearchParams(location.search).get('kick');
     if (k && NOTES[k]) setMsg(NOTES[k]);
     const t = new URLSearchParams(location.search).get('twitch');
     if (t && TNOTES[t]) setMsg(TNOTES[t]);
-    return () => window.removeEventListener('focus', onFocus);
+    return () => { window.removeEventListener('focus', onFocus); clearInterval(tick); };
   }, [load]);
 
   // Show the change right away, then save it. If saving fails, go back to what the server has.
   const save = async (patch: Partial<Status>, body: Record<string, unknown>) => {
     setS(prev => (prev ? { ...prev, ...patch } : prev));
     const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, platform: view }) });
+    if (!r.ok) { setMsg((await r.json().catch(() => ({}))).error || 'Could not save.'); load(view); } else setMsg('');
+  };
+  // The on/off switch of one channel (its card). Optimistic, like save().
+  const setOn = async (p: 'kick' | 'twitch', on: boolean) => {
+    const now = new Date().toISOString();
+    setS(prev => (prev ? { ...prev, ...(prev.platform === p ? { enabled: on } : {}), channels: (prev.channels || []).map(c => (c.platform === p ? { ...c, enabled: on, by: 'the dashboard', at: now } : c)) } : prev));
+    const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: on, platform: p }) });
     if (!r.ok) { setMsg((await r.json().catch(() => ({}))).error || 'Could not save.'); load(view); } else setMsg('');
   };
   const skip = async (body: { skipAdd: string } | { skipRemove: string }, ok: string) => {
@@ -50,7 +69,6 @@ export default function Dashboard() {
     setSkipMsg(ok);
     if ('skipAdd' in body) setName('');
   };
-  const test = async () => { const r = await fetch('/api/kick/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: view }) }); setMsg(r.ok ? 'Sent. Check your chat.' : (await r.json().catch(() => ({}))).error || 'Could not send.'); };
   const out = async (p?: string) => { await fetch('/api/kick/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: p || view }) }); setMsg(''); setView(''); load(); };
 
   const P = s?.platform === 'twitch' ? 'Twitch' : 'Kick';
@@ -94,8 +112,10 @@ export default function Dashboard() {
                 const ready = p === 'kick' ? s.kickReady : s.twitchReady;
                 if (!mine) return ready ? <a key={p} className={`plat ${p === 'kick' ? 'k' : 't'} off`} href={`/api/${p}/login`}><i></i><span><b>{nm}</b><small>not linked</small></span><span className="go">Connect {nm}</span></a> : null;
                 return (
-                  <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${view === p ? ' sel' : ''}`} role="button" tabIndex={0} onClick={() => { if (view !== p) { setView(p); load(p); } }} onKeyDown={e => { if (e.key === 'Enter' && view !== p) { setView(p); load(p); } }}>
-                    <i></i><span><b>{nm}</b><small>{mine.name}</small></span>
+                  <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${view === p ? ' sel' : ''}${mine.enabled ? '' : ' paused'}`} role="button" tabIndex={0} onClick={() => { if (view !== p) { setView(p); load(p); } }} onKeyDown={e => { if (e.key === 'Enter' && view !== p) { setView(p); load(p); } }}>
+                    <div className="ptop"><span><b>{nm}</b><small>{mine.name}</small></span>
+                      <span className="sw"><span>{mine.enabled ? 'On' : 'Off'}</span><button type="button" className="tog" role="switch" aria-checked={Boolean(mine.enabled)} aria-label={`${nm} translator`} onClick={e => { e.stopPropagation(); setOn(p, !mine.enabled); }} /></span></div>
+                    <div className="pst">{stateLine(mine)}</div>
                     <button type="button" className="x" onClick={e => { e.stopPropagation(); out(p); }}>Disconnect</button>
                   </div>
                 );
@@ -108,11 +128,14 @@ export default function Dashboard() {
               <div className="item">
                 <div className="row">
                   <div>
-                    <div className="t">Translator</div>
-                    <div className="d">{s.enabled ? `On. Chat gets a ${lang} line. No more nodding along.` : 'Off. Chat is on its own. Good luck.'}</div>
-                    <div className="cmds"><code>!translate on</code><code>!translate off</code><span className="d">in your chat</span></div>
+                    <div className="t">Commands</div>
+                    <div className="d">Type them in either chat.{s.mods ? ' You and your mods can.' : ''}</div>
+                    <div className="cmdgrid">
+                      <div><code>!translate off</code><span className="d">off in this chat</span></div>
+                      <div><code>!translate on</code><span className="d">on in this chat</span></div>
+                      {(s.channels || []).length > 1 && <><div><code>!translate off all</code><span className="d">off in both chats</span></div><div><code>!translate on all</code><span className="d">on in both chats</span></div></>}
+                    </div>
                   </div>
-                  <button className="tog" role="switch" aria-checked={Boolean(s.enabled)} aria-label="Translator" onClick={() => save({ enabled: !s.enabled }, { enabled: !s.enabled })} />
                 </div>
                 <div className="row sub">
                   <div><div className="t2">Mods can use the commands</div><div className="d">{s.mods ? 'You and your mods. They get the remote too.' : 'Just you. Mods can watch, not touch.'}</div></div>
@@ -156,7 +179,6 @@ export default function Dashboard() {
             </div>
 
             {!s.translatorReady && <p className="note">The translation key isn't set on the server yet.</p>}
-            <div className="foot"><button onClick={test}>Send a test line</button></div>
           </section>
         )}
       </main>

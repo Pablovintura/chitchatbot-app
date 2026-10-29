@@ -130,17 +130,27 @@ export async function onChat(ev: ChatEvent) {
     if (!ch) return;
     const channelId = ch.id;
 
-    // !translate on / off: same switch as the dashboard. Broadcaster only, others are ignored quietly.
-    const sw = msg.match(/^!translate\s+(on|off)\s*$/i);
+    // !translate on / off: same switch as the dashboard. "all" does both of your channels (Kick and Twitch) at once.
+    // Broadcaster only, others are ignored quietly.
+    const sw = msg.match(/^!translate\s+(on|off)(\s+all)?\s*$/i);
     if (sw) {
       const allowed = ev.senderId === ev.broadcasterId || (ev.isMod && (await settingsFor(channelId)).mods);
       if (!allowed) return;
       const enabled = sw[1].toLowerCase() === 'on';
       if (enabled && !configured()) { await say(ch, "Translate can't turn on yet: the translation key is missing. Not our finest moment."); return; }
-      const { error } = await db().from('settings').upsert({ channel_id: channelId, enabled, updated_at: new Date().toISOString() }, { onConflict: 'channel_id' });
-      if (error) { await say(ch, "Couldn't change the translate setting. Try again in a sec."); return; }
-      dropSettingsCache(channelId);
-      await say(ch, enabled ? `Translate is ON. Anything not in ${LANGUAGES[(await settingsFor(channelId)).home]} gets a translated line. No more nodding along.` : 'Translate is OFF. Chat is on its own. Good luck.');
+      let targets: Chan[] = [ch];
+      if (sw[2]) {
+        const { data } = await db().from('channels').select('id, account_id, platform, platform_user_id, access_token_enc').eq('account_id', ch.account_id);
+        targets = ((data || []) as any[]).filter(r => r.id === channelId || r.access_token_enc).map(r => ({ id: r.id as string, account_id: r.account_id as string, platform: r.platform as string, platform_user_id: String(r.platform_user_id) }));
+      }
+      const from = ch.platform === 'twitch' ? 'Twitch chat' : 'Kick chat';
+      for (const t of targets) {
+        const { error } = await db().from('settings').upsert({ channel_id: t.id, enabled, updated_at: new Date().toISOString() }, { onConflict: 'channel_id' });
+        if (error) { if (t.id === channelId) await say(ch, "Couldn't change the translate setting. Try again in a sec."); continue; }
+        dropSettingsCache(t.id);
+        await db().from('settings').update({ toggled_by: from, toggled_at: new Date().toISOString() }).eq('channel_id', t.id).then(() => {}, () => {}); // note for the dashboard; fine if the columns aren't there yet
+        await say(t, enabled ? `Translate is ON. Anything not in ${LANGUAGES[(await settingsFor(t.id)).home]} gets a translated line. No more nodding along.` : 'Translate is OFF. Chat is on its own. Good luck.').catch(() => {});
+      }
       return;
     }
     if (msg.startsWith('!')) return; // other commands

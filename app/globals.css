@@ -105,3 +105,13 @@ select:hover{border-color:#3a484b}
 .plat .x:hover{color:#f87171}
 .plat .go{margin-left:6px;font-size:12px;font-weight:800}
 .plat.off.t .go{color:#9146ff}.plat.off.k .go{color:#53fc18}
+.plat{flex-direction:column;align-items:stretch;gap:8px;flex:1 1 240px;min-width:0}
+.plat .ptop{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.plat .sw{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800}
+.plat .pst{font-size:12px;opacity:.7}
+.plat .x{align-self:flex-start;margin-left:0}
+.plat.lk.paused{border-color:rgba(255,255,255,.18)}
+.plat.off{flex-direction:row;align-items:center}
+.allrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 16px}
+.btn.small{padding:4px 10px;font-size:12px}
+.cmdgrid{display:grid;gap:6px;margin-top:10px}.cmdgrid>div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
