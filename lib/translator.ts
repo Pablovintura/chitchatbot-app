@@ -1,4 +1,4 @@
-import { cleanForDetect, detectLanguage } from './detect';
+import { cleanForDetect, detectLanguage, flagFor } from './detect';
 import { db } from './supabase';
 import { sendChat } from './kick';
 
@@ -16,7 +16,12 @@ const recent = new Map<string, number[]>();           // channel -> times in the
 const busy = new Map<string, number>();
 const seen = new Set<string>();                       // webhook message ids already handled
 
-export const configured = () => Boolean(process.env.CF_ACCOUNT_ID?.trim() && process.env.CF_AI_TOKEN?.trim());
+// Forgiving about how the values were pasted: spaces, quotes or a leading "Bearer " are removed.
+const tidy = (v?: string) => String(v || '').trim().replace(/^["']+|["']+$/g, '').replace(/^Bearer\s+/i, '').trim();
+export const configured = () => Boolean(tidy(process.env.CF_ACCOUNT_ID) && tidy(process.env.CF_AI_TOKEN));
+
+// Our own lines look like "🇪🇸 pedro: hello". Never translate those back.
+const OWN_LINE = /^(?:\p{Regional_Indicator}{2}|🌐) [^\s:]+: /u;
 
 export function dropSettingsCache(channelId: string) { cache.delete(channelId); }
 
@@ -30,15 +35,18 @@ async function settingsFor(channelId: string): Promise<Settings> {
 }
 
 async function translate(text: string, source: string): Promise<string> {
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(process.env.CF_ACCOUNT_ID!.trim())}/ai/run/${MODEL}`, {
+  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(tidy(process.env.CF_ACCOUNT_ID))}/ai/run/${MODEL}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.CF_AI_TOKEN!.trim()}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${tidy(process.env.CF_AI_TOKEN)}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, source_lang: source, target_lang: 'en' }),
     signal: AbortSignal.timeout(8000)
   });
   const body: any = await res.json().catch(() => null);
   const out = body?.result?.translated_text;
-  if (!res.ok || typeof out !== 'string') throw new Error(`Cloudflare ${res.status}`);
+  if (!res.ok || typeof out !== 'string') {
+    const why = (body?.errors || []).map((e: any) => `${e.code || ''} ${e.message || ''}`.trim()).filter(Boolean).join('; ');
+    throw new Error(`Cloudflare ${res.status}${why ? ` (${why.slice(0, 200)})` : ''}`);
+  }
   return out.trim();
 }
 
@@ -60,7 +68,8 @@ export async function onChat(ev: ChatEvent) {
       if (seen.size > 5000) seen.delete(seen.values().next().value as string);
     }
     const msg = ev.text.trim();
-    if (!msg || msg.startsWith('🌐')) return; // our own lines
+    if (!msg || OWN_LINE.test(msg)) return; // our own lines
+    if (process.env.KICK_BOT_USER_ID && ev.senderId === process.env.KICK_BOT_USER_ID) return;
 
     const { data: ch } = await db().from('channels').select('id, account_id').eq('platform', 'kick').eq('platform_user_id', ev.broadcasterId).maybeSingle();
     if (!ch) return;
@@ -102,7 +111,12 @@ export async function onChat(ev: ChatEvent) {
       const english = await translate(body, source);
       const plain = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
       if (!english || plain(english) === plain(body)) return;
-      let line = `🌐 ${ev.username.replace(/^@+/, '')}: ${english}`;
+      // Mostly the same words in and out = it was English after all (he's famous -> He is famous).
+      const wordsOf = (x: string) => x.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+      const outWords = new Set(wordsOf(english));
+      const inWords = wordsOf(body);
+      if (inWords.length && inWords.filter(w => outWords.has(w)).length / inWords.length >= 0.6) return;
+      let line = `${flagFor(source)} ${ev.username.replace(/^@+/, '')}: ${english}`;
       if (line.length > MAX_CHAT) line = line.slice(0, MAX_CHAT - 1) + '…';
       await sendChat(channelId, line);
       await countUsage(ch.account_id as string, body.length).catch(() => {});
