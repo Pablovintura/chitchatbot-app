@@ -131,7 +131,7 @@ export default function Dashboard() {
             </div>
 
             {!s.translatorReady && <p className="note">The translation key isn't set on the server yet.</p>}
-            <div className="foot"><button onClick={test}>Send a test line</button><button onClick={out}>Disconnect Kick (we'll be fine)</button></div>
+            <div className="foot"><button onClick={test}>Send a test line</button><button className="danger" onClick={out}>Disconnect Kick (we'll be fine)</button></div>
           </section>
         )}
       </main>
