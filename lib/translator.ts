@@ -56,12 +56,22 @@ async function settingsFor(channelId: string): Promise<Settings> {
   return s;
 }
 
+// The free Cloudflare model can be slow to wake up, so wait longer and try a second time before giving up.
 async function translate(text: string, source: string, target: string): Promise<string> {
+  try { return await translateOnce(text, source, target); }
+  catch (e) {
+    const msg = (e as Error).message || '';
+    if (!/timeout|abort|Cloudflare 5\d\d/i.test(msg)) throw e;
+    return translateOnce(text, source, target);
+  }
+}
+
+async function translateOnce(text: string, source: string, target: string): Promise<string> {
   const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(tidy(process.env.CF_ACCOUNT_ID))}/ai/run/${MODEL}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${tidy(process.env.CF_AI_TOKEN)}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, source_lang: source, target_lang: target }),
-    signal: AbortSignal.timeout(8000)
+    signal: AbortSignal.timeout(20000)
   });
   const body: any = await res.json().catch(() => null);
   const out = body?.result?.translated_text;
