@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/supabase';
 import { currentChannel } from '@/lib/session';
-import { configured, dropSettingsCache, LANGUAGES } from '@/lib/translator';
+import { configured, dropSettingsCache, LANGUAGES, SKIP_MAX, skipKey } from '@/lib/translator';
 
 export const dynamic = 'force-dynamic';
 
-// Saves only the fields that are sent: enabled, cooldown (0-600 s), language, mods.
+// Saves only the fields that are sent: enabled, cooldown (0-600 s), language, mods, skipAdd / skipRemove (one username).
 export async function POST(req: NextRequest) {
   const ch = await currentChannel();
   if (!ch) return NextResponse.json({ error: 'Sign in with Kick first.' }, { status: 401 });
@@ -25,8 +25,23 @@ export async function POST(req: NextRequest) {
     row.home_language = String(b.language);
   }
   if ('mods' in b) row.mods_can_toggle = b.mods === true;
+  if ('skipAdd' in b || 'skipRemove' in b) {
+    const { data } = await db().from('settings').select('skip_list').eq('channel_id', ch.id).maybeSingle();
+    let list: string[] = Array.isArray(data?.skip_list) ? data.skip_list : [];
+    if ('skipAdd' in b) {
+      const n = String(b.skipAdd || '').trim().replace(/^@+/, '');
+      if (!/^[\w-]{1,40}$/.test(n)) return NextResponse.json({ error: 'That does not look like a Kick username.' }, { status: 400 });
+      if (list.some(x => skipKey(x) === skipKey(n))) return NextResponse.json({ error: `${n} is already skipped. Nice try.` }, { status: 400 });
+      if (list.length >= SKIP_MAX) return NextResponse.json({ error: `The list is full (${SKIP_MAX}). Someone has to go.` }, { status: 400 });
+      list = [n, ...list];
+    } else {
+      const k = skipKey(String(b.skipRemove || ''));
+      list = list.filter(x => skipKey(x) !== k);
+    }
+    row.skip_list = list;
+  }
   const { error } = await db().from('settings').upsert(row, { onConflict: 'channel_id' });
   if (error) return NextResponse.json({ error: 'Could not save.' }, { status: 500 });
   dropSettingsCache(ch.id);
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, skip: row.skip_list });
 }

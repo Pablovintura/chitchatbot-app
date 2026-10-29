@@ -33,6 +33,7 @@ create table if not exists settings (
   output text not null default 'chat' check (output in ('chat','extension','both')),
   cooldown_seconds int not null default 30 check (cooldown_seconds between 0 and 600),
   mods_can_toggle boolean not null default false,
+  skip_list text[] not null default '{}',
   updated_at timestamptz not null default now()
 );
 

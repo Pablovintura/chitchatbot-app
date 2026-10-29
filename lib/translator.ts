@@ -12,7 +12,9 @@ export const FREE_CAP = 50000;                       // characters per channel p
 const DAILY_MAX = Number(process.env.DAILY_TRANSLATIONS) || 8000; // safety stop for the shared Cloudflare allowance (resets each UTC day)
 export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
 
-type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; at: number };
+type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; skip: Set<string>; at: number };
+export const SKIP_MAX = 50;
+export const skipKey = (n: string) => n.toLowerCase().replace(/^@+/, '').replace(/[-_\s]/g, ''); // Kick slugs use - where names use _
 const cache = new Map<string, Settings>();           // channel id -> settings (30 s)
 const lastByUser = new Map<string, number>();         // channel:user -> last translated
 const recent = new Map<string, number[]>();           // channel -> times in the last minute
@@ -46,9 +48,9 @@ export function dropSettingsCache(channelId: string) { cache.delete(channelId); 
 async function settingsFor(channelId: string): Promise<Settings> {
   const hit = cache.get(channelId);
   if (hit && Date.now() - hit.at < 30000) return hit;
-  const { data } = await db().from('settings').select('enabled, cooldown_seconds, home_language, mods_can_toggle').eq('channel_id', channelId).maybeSingle();
+  const { data } = await db().from('settings').select('enabled, cooldown_seconds, home_language, mods_can_toggle, skip_list').eq('channel_id', channelId).maybeSingle();
   const home = String(data?.home_language || 'en');
-  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), at: Date.now() };
+  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), skip: new Set<string>((Array.isArray(data?.skip_list) ? data.skip_list : []).map((x: string) => skipKey(String(x)))), at: Date.now() };
   cache.set(channelId, s);
   return s;
 }
@@ -116,16 +118,17 @@ export async function onChat(ev: ChatEvent) {
       const allowed = ev.senderId === ev.broadcasterId || (ev.isMod && (await settingsFor(channelId)).mods);
       if (!allowed) return;
       const enabled = sw[1].toLowerCase() === 'on';
-      if (enabled && !configured()) { await sendChat(channelId, "Translate can't turn on yet: the translation key is missing."); return; }
+      if (enabled && !configured()) { await sendChat(channelId, "Translate can't turn on yet: the translation key is missing. Not our finest moment."); return; }
       const { error } = await db().from('settings').upsert({ channel_id: channelId, enabled, updated_at: new Date().toISOString() }, { onConflict: 'channel_id' });
-      if (error) { await sendChat(channelId, 'Could not change the translate setting.'); return; }
+      if (error) { await sendChat(channelId, "Couldn't change the translate setting. Try again in a sec."); return; }
       dropSettingsCache(channelId);
-      await sendChat(channelId, enabled ? `Translate is now ON. Messages not in ${LANGUAGES[(await settingsFor(channelId)).home]} get a translated line in chat.` : 'Translate is now OFF.');
+      await sendChat(channelId, enabled ? `Translate is ON. Anything not in ${LANGUAGES[(await settingsFor(channelId)).home]} gets a translated line. No more nodding along.` : 'Translate is OFF. Chat is on its own. Good luck.');
       return;
     }
     if (msg.startsWith('!')) return; // other commands
     const s = await settingsFor(channelId);
     if (!s.enabled) return;
+    if (s.skip.has(skipKey(ev.username))) return; // on the streamer's skip list
 
     const now = Date.now();
     const ukey = `${channelId}:${ev.senderId}`;
