@@ -2,13 +2,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 type Status = {
-  connected: boolean; kickReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
+  connected: boolean; platform?: 'kick' | 'twitch'; kickReady?: boolean; twitchReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
   enabled?: boolean; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[];
 };
 
 const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
 const PAUSES: [number, string][] = [[0, 'None'], [10, '10 sec'], [30, '30 sec'], [60, '1 min'], [120, '2 min'], [300, '5 min']];
 const NOTES: Record<string, string> = { connected: 'Kick connected.', denied: 'Kick sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Kick.' };
+const TNOTES: Record<string, string> = { connected: 'Twitch connected.', denied: 'Twitch sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Twitch.', botok: 'The bot account is set. Now streamers can connect.' };
 
 export default function Dashboard() {
   const [s, setS] = useState<Status | null>(null);
@@ -23,6 +24,8 @@ export default function Dashboard() {
     window.addEventListener('focus', onFocus);
     const k = new URLSearchParams(location.search).get('kick');
     if (k && NOTES[k]) setMsg(NOTES[k]);
+    const t = new URLSearchParams(location.search).get('twitch');
+    if (t && TNOTES[t]) setMsg(TNOTES[t]);
     return () => window.removeEventListener('focus', onFocus);
   }, [load]);
 
@@ -40,9 +43,10 @@ export default function Dashboard() {
     setSkipMsg(ok);
     if ('skipAdd' in body) setName('');
   };
-  const test = async () => { const r = await fetch('/api/kick/test', { method: 'POST' }); setMsg(r.ok ? 'Sent. Check your Kick chat.' : (await r.json().catch(() => ({}))).error || 'Could not send.'); };
+  const test = async () => { const r = await fetch('/api/kick/test', { method: 'POST' }); setMsg(r.ok ? 'Sent. Check your chat.' : (await r.json().catch(() => ({}))).error || 'Could not send.'); };
   const out = async () => { await fetch('/api/kick/disconnect', { method: 'POST' }); setMsg(''); load(); };
 
+  const P = s?.platform === 'twitch' ? 'Twitch' : 'Kick';
   const lang = LANGS[s?.language || 'en'] || 'English';
   const used = s?.used || 0, cap = s?.cap || 50000;
   const pauses = s?.cooldown != null && !PAUSES.some(p => p[0] === s.cooldown) ? [...PAUSES, [s.cooldown, `${s.cooldown} sec`] as [number, string]] : PAUSES;
@@ -64,9 +68,10 @@ export default function Dashboard() {
         {s && !s.connected && (
           <section>
             <h1>Is chat roasting you? Now you'll know.</h1>
-            <p className="lede">Link your Kick channel and the bot puts a translation under every message that isn't in your language.</p>
+            <p className="lede">Link your Kick or Twitch channel and the bot puts a translation under every message that isn't in your language.</p>
             <div className="cta">
               {s.kickReady ? <a className="btn" href="/api/kick/login">Sign in with Kick</a> : <span className="small">Kick app settings are missing on the server.</span>}
+              {s.twitchReady && <a className="btn twitch" href="/api/twitch/login">Sign in with Twitch</a>}
               <span className="small">Free. Your chat isn't saved.</span>
             </div>
             {msg && <p className="msg" style={{ marginTop: 18 }}>{msg}</p>}
@@ -76,7 +81,7 @@ export default function Dashboard() {
         {s?.connected && (
           <section>
             <h1>Hey, {s.channel}.</h1>
-            <p className="on"><i></i>Connected to Kick. Chat can't hide.</p>
+            <p className="on"><i></i>Connected to {P}. Chat can't hide.</p>
             {msg && <p className="msg">{msg}</p>}
 
             <div className="sheet">
@@ -113,7 +118,7 @@ export default function Dashboard() {
                 <div className="row"><div className="t">Skip list</div><span className="d">{(s.skip || []).length} of 50</span></div>
                 <div className="d">The bot won't translate these chatters. Other bots, mostly.</div>
                 <form className="skipadd" onSubmit={e => { e.preventDefault(); const v = name.trim().replace(/^@+/, ''); if (v) skip({ skipAdd: v }, `${v} is skipped. Their messages stay as they are.`); }}>
-                  <input value={name} onChange={e => setName(e.target.value)} placeholder="Kick username" autoComplete="off" aria-label="Kick username" maxLength={40} />
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder={`${P} username`} autoComplete="off" aria-label={`${P} username`} maxLength={40} />
                   <button className="btn" type="submit">Add</button>
                 </form>
                 {skipMsg && <div className="skipnote" aria-live="polite">{skipMsg}</div>}
@@ -131,7 +136,7 @@ export default function Dashboard() {
             </div>
 
             {!s.translatorReady && <p className="note">The translation key isn't set on the server yet.</p>}
-            <div className="foot"><button onClick={test}>Send a test line</button><button className="danger" onClick={out}>Disconnect Kick (we'll be fine)</button></div>
+            <div className="foot"><button onClick={test}>Send a test line</button><button className="danger" onClick={out}>Disconnect {P} (we'll be fine)</button></div>
           </section>
         )}
       </main>

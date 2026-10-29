@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 // Saves only the fields that are sent: enabled, cooldown (0-600 s), language, mods, skipAdd / skipRemove (one username).
 export async function POST(req: NextRequest) {
   const ch = await currentChannel();
-  if (!ch) return NextResponse.json({ error: 'Sign in with Kick first.' }, { status: 401 });
+  if (!ch) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
   const b = await req.json().catch(() => ({}));
   const row: Record<string, unknown> = { channel_id: ch.id, updated_at: new Date().toISOString() };
   if ('enabled' in b) {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     let list: string[] = Array.isArray(data?.skip_list) ? data.skip_list : [];
     if ('skipAdd' in b) {
       const n = String(b.skipAdd || '').trim().replace(/^@+/, '');
-      if (!/^[\w-]{1,40}$/.test(n)) return NextResponse.json({ error: 'That does not look like a Kick username.' }, { status: 400 });
+      if (!/^[\w-]{1,40}$/.test(n)) return NextResponse.json({ error: 'That does not look like a username.' }, { status: 400 });
       if (list.some(x => skipKey(x) === skipKey(n))) return NextResponse.json({ error: `${n} is already skipped. Nice try.` }, { status: 400 });
       if (list.length >= SKIP_MAX) return NextResponse.json({ error: `The list is full (${SKIP_MAX}). Someone has to go.` }, { status: 400 });
       list = [n, ...list];

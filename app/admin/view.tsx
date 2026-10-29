@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-type Row = { id: string; name: string; joined: string; linked: boolean; on: boolean; language: string; plan: string; used: number };
+type Row = { id: string; name: string; platform?: string; joined: string; linked: boolean; on: boolean; language: string; plan: string; used: number };
 
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
@@ -44,7 +44,7 @@ export default function AdminView({ me }: { me: string }) {
             <div className="r" key={r.id}>
               <button className="rh" aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? '' : r.id)}>
                 <span className={`dot${r.on ? ' on' : ''}`} />
-                <span className="nm"><b>{r.name}</b><span>Joined {day(r.joined)}{r.linked ? '' : ' · disconnected'}</span></span>
+                <span className="nm"><b>{r.name}</b><span>{r.platform === 'twitch' ? 'Twitch · ' : ''}Joined {day(r.joined)}{r.linked ? '' : ' · disconnected'}</span></span>
                 <span className="use">{r.used.toLocaleString()}<i><u style={{ width: `${Math.min(100, (r.used / cap) * 100)}%` }} /></i></span>
               </button>
               {open === r.id && (

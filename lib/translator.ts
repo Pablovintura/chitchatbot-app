@@ -1,8 +1,9 @@
 import { cleanForDetect, detectLanguage, flagFor, looksEnglish } from './detect';
 import { db } from './supabase';
-import { sendChat } from './kick';
+import { sendChat as kickSend } from './kick';
+import { sendChat as twitchSend } from './twitch';
 
-// Chat translator for a connected Kick channel: other languages -> English line in chat via Cloudflare Workers AI.
+// Chat translator for a connected Kick or Twitch channel: other languages -> English line in chat via Cloudflare Workers AI.
 // Same behaviour as PxVbot's translator. Messages are never stored or logged; only a character count is added to usage.
 
 const PER_MINUTE = 6;
@@ -33,15 +34,21 @@ const OWN_LINE = /^(?:\p{Regional_Indicator}{2}|🌐) [^\s:]+: /u;
 
 // Every chat message of every linked channel arrives here, so the channel lookup is remembered for a minute
 // instead of asking the database each time.
-const chanCache = new Map<string, { id: string; account_id: string; at: number } | { id: null; at: number }>();
-async function channelFor(broadcasterId: string): Promise<{ id: string; account_id: string } | null> {
-  const hit = chanCache.get(broadcasterId);
-  if (hit && Date.now() - hit.at < 60000) return hit.id ? (hit as { id: string; account_id: string }) : null;
-  const { data } = await db().from('channels').select('id, account_id').eq('platform', 'kick').eq('platform_user_id', broadcasterId).maybeSingle();
+type Chan = { id: string; account_id: string; platform: string; platform_user_id: string };
+const chanCache = new Map<string, (Chan & { at: number }) | { id: null; at: number }>();
+async function channelFor(platform: string, broadcasterId: string): Promise<Chan | null> {
+  const key = `${platform}:${broadcasterId}`;
+  const hit = chanCache.get(key);
+  if (hit && Date.now() - hit.at < 60000) return hit.id ? (hit as Chan) : null;
+  const { data } = await db().from('channels').select('id, account_id').eq('platform', platform).eq('platform_user_id', broadcasterId).maybeSingle();
   if (chanCache.size > 2000) chanCache.clear();
-  chanCache.set(broadcasterId, data ? { id: data.id as string, account_id: data.account_id as string, at: Date.now() } : { id: null, at: Date.now() });
-  return data ? { id: data.id as string, account_id: data.account_id as string } : null;
+  const ch: Chan | null = data ? { id: data.id as string, account_id: data.account_id as string, platform, platform_user_id: broadcasterId } : null;
+  chanCache.set(key, ch ? { ...ch, at: Date.now() } : { id: null, at: Date.now() });
+  return ch;
 }
+
+// One place that knows how to talk in each platform's chat.
+const say = (ch: Chan, text: string) => (ch.platform === 'twitch' ? twitchSend(ch.platform_user_id, text) : kickSend(ch.id, text));
 
 export function dropSettingsCache(channelId: string) { cache.delete(channelId); }
 
@@ -104,7 +111,7 @@ async function countUsage(accountId: string, chars: number) {
   await db().from('usage').upsert({ account_id: accountId, month, characters: chars2 }, { onConflict: 'account_id,month' });
 }
 
-export type ChatEvent = { messageId: string | null; broadcasterId: string; senderId: string; username: string; text: string; isMod?: boolean };
+export type ChatEvent = { platform?: 'kick' | 'twitch'; messageId: string | null; broadcasterId: string; senderId: string; username: string; text: string; isMod?: boolean };
 
 // Runs after the webhook has already been answered. Never throws.
 export async function onChat(ev: ChatEvent) {
@@ -117,9 +124,9 @@ export async function onChat(ev: ChatEvent) {
     }
     const msg = ev.text.trim();
     if (!msg || OWN_LINE.test(msg)) return; // our own lines
-    if (process.env.KICK_BOT_USER_ID && ev.senderId === process.env.KICK_BOT_USER_ID) return;
+    if (ev.platform !== 'twitch' && process.env.KICK_BOT_USER_ID && ev.senderId === process.env.KICK_BOT_USER_ID) return;
 
-    const ch = await channelFor(ev.broadcasterId);
+    const ch = await channelFor(ev.platform || 'kick', ev.broadcasterId);
     if (!ch) return;
     const channelId = ch.id;
 
@@ -129,11 +136,11 @@ export async function onChat(ev: ChatEvent) {
       const allowed = ev.senderId === ev.broadcasterId || (ev.isMod && (await settingsFor(channelId)).mods);
       if (!allowed) return;
       const enabled = sw[1].toLowerCase() === 'on';
-      if (enabled && !configured()) { await sendChat(channelId, "Translate can't turn on yet: the translation key is missing. Not our finest moment."); return; }
+      if (enabled && !configured()) { await say(ch, "Translate can't turn on yet: the translation key is missing. Not our finest moment."); return; }
       const { error } = await db().from('settings').upsert({ channel_id: channelId, enabled, updated_at: new Date().toISOString() }, { onConflict: 'channel_id' });
-      if (error) { await sendChat(channelId, "Couldn't change the translate setting. Try again in a sec."); return; }
+      if (error) { await say(ch, "Couldn't change the translate setting. Try again in a sec."); return; }
       dropSettingsCache(channelId);
-      await sendChat(channelId, enabled ? `Translate is ON. Anything not in ${LANGUAGES[(await settingsFor(channelId)).home]} gets a translated line. No more nodding along.` : 'Translate is OFF. Chat is on its own. Good luck.');
+      await say(ch, enabled ? `Translate is ON. Anything not in ${LANGUAGES[(await settingsFor(channelId)).home]} gets a translated line. No more nodding along.` : 'Translate is OFF. Chat is on its own. Good luck.');
       return;
     }
     if (msg.startsWith('!')) return; // other commands
@@ -173,7 +180,7 @@ export async function onChat(ev: ChatEvent) {
       if (inWords.length && inWords.filter(w => outWords.has(w)).length / inWords.length >= 0.6) return;
       let line = `${flagFor(source)} ${ev.username.replace(/^@+/, '')}: ${english}`;
       if (line.length > MAX_CHAT) line = line.slice(0, MAX_CHAT - 1) + '…';
-      await sendChat(channelId, line);
+      await say(ch, line);
       await countUsage(ch.account_id, body.length).catch(() => {});
     } finally {
       busy.set(channelId, Math.max(0, (busy.get(channelId) || 1) - 1));

@@ -11,7 +11,7 @@ export async function GET() {
   if (!isAdmin(await currentChannel())) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const month = new Date().toISOString().slice(0, 8) + '01';
   const [ch, st, us, ac] = await Promise.all([
-    db().from('channels').select('id, account_id, channel_name, created_at, access_token_enc').eq('platform', 'kick').order('created_at', { ascending: false }).limit(500),
+    db().from('channels').select('id, account_id, channel_name, created_at, access_token_enc, platform').order('created_at', { ascending: false }).limit(500),
     db().from('settings').select('channel_id, enabled, home_language'),
     db().from('usage').select('account_id, characters').eq('month', month),
     db().from('accounts').select('id, plan')
@@ -22,7 +22,7 @@ export async function GET() {
   const rows = (ch.data || []).map((c: any) => {
     const s: any = sMap.get(c.id);
     return {
-      id: c.id, name: c.channel_name, joined: c.created_at, linked: Boolean(c.access_token_enc),
+      id: c.id, name: c.channel_name, platform: c.platform, joined: c.created_at, linked: Boolean(c.access_token_enc),
       on: Boolean(s?.enabled), language: LANGUAGES[s?.home_language || 'en'] || 'English',
       plan: String(pMap.get(c.account_id) || 'free'), used: uMap.get(c.account_id) || 0
     };

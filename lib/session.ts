@@ -7,10 +7,10 @@ export const cookieOpts = (maxAge: number) => ({ httpOnly: true, secure: process
 
 export const makeSession = (accountId: string) => sign(accountId);
 
-// The signed-in Kick channel, or null.
+// The signed-in channel (Kick or Twitch), or null.
 export async function currentChannel() {
   const id = unsign(cookies().get(SESSION_COOKIE)?.value);
   if (!id) return null;
-  const { data } = await db().from('channels').select('id, account_id, channel_name, platform_user_id').eq('account_id', id).eq('platform', 'kick').maybeSingle();
-  return data as { id: string; account_id: string; channel_name: string; platform_user_id: string } | null;
+  const { data } = await db().from('channels').select('id, account_id, channel_name, platform_user_id, platform').eq('account_id', id).maybeSingle();
+  return data as { id: string; account_id: string; channel_name: string; platform_user_id: string; platform: 'kick' | 'twitch' } | null;
 }
