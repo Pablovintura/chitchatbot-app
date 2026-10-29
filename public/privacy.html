@@ -15,12 +15,12 @@
 </div></header>
 <main class="wrap page">
   <h1>Privacy</h1>
-  <p class="small">Last updated October 28, 2026</p>
+  <p class="small">Last updated October 29, 2026</p>
 
   <h2>The short version</h2>
-  <p>ChitChatBot does its work on your computer. It does not send chat messages, what you type, or anything about you to us or to any server we run. We have no accounts and no analytics.</p>
+  <p>There are two parts. The <b>viewer extension</b> works on your computer and sends nothing about you or your chat to us. The <b>Kick bot</b> is for streamers: it runs on our server, reads your chat to translate it, and never saves what anyone wrote. We have no analytics.</p>
 
-  <h2>What the extension reads</h2>
+  <h2>The viewer extension</h2>
   <ul>
     <li>Chat messages on kick.com, twitch.tv, tiktok.com LIVE and YouTube live chat, so it can translate them for you.</li>
     <li>If you turn on Write mode, the text you type in the chat box, so it can show a translated preview and send it.</li>
@@ -33,6 +33,14 @@
   <h2>What is stored</h2>
   <p>Your settings (language, switches) are saved with the browser's extension storage. If you are signed in to Chrome with sync turned on, Chrome may sync these settings across your devices. Chat messages and translations are kept in memory while the page is open and are not saved.</p>
 
+  <h2>The Kick bot (for streamers)</h2>
+  <ul>
+    <li><b>Signing in.</b> You sign in with Kick. We never see your Kick password. We keep your Kick user id, your channel name and the access tokens Kick gives us, which are stored encrypted, so the bot can read and post in your chat.</li>
+    <li><b>Chat.</b> Kick sends your channel's chat messages to our server. Messages are checked in memory. Only messages in another language are sent to Cloudflare (Workers AI) to be translated, then the translation is posted in your chat. Chat messages, usernames and translations are not saved or logged by us.</li>
+    <li><b>What is saved.</b> Your settings (switch, language, pause, mods option) and how many characters were translated each month, which is a number only.</li>
+    <li><b>Leaving.</b> "Disconnect Kick" in the dashboard deletes the saved tokens and turns the bot off.</li>
+  </ul>
+
   <h2>Support payments</h2>
   <p>The Support link opens a payment page run by Stripe in a new tab. Payment details are entered on Stripe's page and handled by Stripe under its own privacy policy. ChitChatBot never sees your card details. The extension and this site do not use cookies or analytics.</p>
 
@@ -43,7 +51,7 @@
   <p>Questions about privacy: <a href="mailto:hello@chitchatbot.stream">hello@chitchatbot.stream</a></p>
 
   <h2>Changes</h2>
-  <p>If a future paid option sends text to a ChitChatBot server for better translation, it will be a separate opt-in, and this page will be updated before it exists.</p>
+  <p>The viewer extension will never send your text to a ChitChatBot server without a separate opt-in. If anything about the bot changes, this page is updated first.</p>
 
 </main>
 <footer class="site"><div class="wrap">

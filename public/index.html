@@ -4,18 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChitChatBot</title>
-<meta name="description" content="Free Chrome and Brave extension that translates Kick, Twitch, YouTube and TikTok live chat under each message, and lets you write back in the chat's language.">
+<meta name="description" content="A bot that translates your Kick chat right inside your channel, plus a free viewer extension for Kick, Twitch, YouTube and TikTok.">
 <link rel="canonical" href="https://chitchatbot.stream/">
 <link rel="icon" type="image/png" href="favicon.png">
 <meta property="og:title" content="ChitChatBot">
-<meta property="og:description" content="Free translation for Kick, Twitch, YouTube and TikTok live chat.">
+<meta property="og:description" content="A bot that translates your Kick chat, and a free viewer extension for live chat everywhere.">
 <meta property="og:image" content="https://chitchatbot.stream/logo.png">
 <link rel="stylesheet" href="style.css?v=20261028b">
+<style>
+.kickbtn{background:#53fc18;border-color:#53fc18;color:#0a1a03;font-weight:800}
+.btn{border-radius:6px;padding:7px 14px;font-size:14px}
+.chat,.st,.pv,.inp{border-radius:8px}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:44px 0 8px;border-top:1px solid var(--line)}
+.st{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:16px 18px}
+.st b.n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:rgba(255,166,207,.14);border:1px solid rgba(255,166,207,.5);color:var(--accent);font:800 13px system-ui;margin-bottom:10px}
+.st h3{font-size:17px;margin:0 0 4px}
+.st p{margin:0;color:var(--muted);font-size:15px}
+.stt{padding:44px 0 0;border-top:1px solid var(--line)}
+.stt h2{margin-bottom:6px}
+.stt>p{color:var(--muted);margin:0 0 18px;max-width:56ch}
+@media (max-width:760px){.steps{grid-template-columns:minmax(0,1fr)}}
+.cmdrow{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 0}
+</style>
+
 </head>
-<body class="home"><div class="bgl" aria-hidden="true"><svg class="bb" viewBox="0 0 24 24" style="left:-4%;top:10%;width:300px;transform:rotate(-8deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:70%;top:30%;width:360px;transform:rotate(10deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:5%;top:60%;width:280px;transform:rotate(6deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:75%;top:80%;width:320px;transform:rotate(-6deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg></div>
+<body class="home">
+<div class="bgl" aria-hidden="true"><svg class="bb" viewBox="0 0 24 24" style="left:-4%;top:10%;width:300px;transform:rotate(-8deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:70%;top:30%;width:360px;transform:rotate(10deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:5%;top:60%;width:280px;transform:rotate(6deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:75%;top:80%;width:320px;transform:rotate(-6deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg></div>
 <header class="site"><div class="wrap">
   <a class="brand" href="index.html"><img src="icon.png" alt="">ChitChatBot</a>
-  <nav aria-label="Site"><a href="updates.html">Updates</a><a href="faq.html">FAQ</a><a href="https://buy.stripe.com/9B614pajedgR5i08WSfnO00" target="_blank" rel="noopener">♥ Support</a><a class="btn primary" href="faq.html#install">Get it</a></nav>
+  <nav aria-label="Site"><a href="#viewer">Viewer extension</a><a href="updates.html">Updates</a><a href="faq.html">FAQ</a><a href="https://buy.stripe.com/9B614pajedgR5i08WSfnO00" target="_blank" rel="noopener">♥ Support</a><a class="btn primary" href="/dashboard">Dashboard</a></nav>
 </div></header>
 
 <main class="wrap">
@@ -23,11 +40,36 @@
     <div class="topcopy">
       <img class="herologo" src="logo.png" alt="ChitChatBot">
       <h1>Is chat roasting you? Now you'll know.</h1>
-      <p class="lede">A free extension that puts a translation under every message on Kick, Twitch, YouTube and TikTok, so you can stop nodding along. It lets you write back in their language too. Your emotes survive the trip, 7TV, BetterTTV and FrankerFaceZ included. We're not monsters.</p>
+      <p class="lede">A bot that translates your Kick chat right inside your channel. Everyone sees it, nobody installs anything, and you can finally stop nodding along.</p>
       <div class="cta">
-        <a class="btn primary" href="faq.html#install">Fine, get it</a>
-        <span class="small">Free. Chrome and Brave, desktop. No, your phone doesn't count.</span>
+        <a class="btn kickbtn" href="/dashboard">Sign in with Kick</a>
+        <span class="small">Free. 50,000 characters a month. Twitch is next.</span>
       </div>
+    </div>
+    <div class="topchat site-kick soonchat">
+      <div class="chat" role="img" aria-label="Chat where the ChitChatBot bot replies with translations">
+        <div class="msg"><span class="bdgs show"><img src="badges/verified.svg" alt="Verified" title="Verified"></span><span class="u" style="color:#b48cff">lucas_fr:</span> mdr il a <span class="nw">raté <img class="emo" src="emotes/KEKW.webp" alt="KEKW" title="KEKW"></span></div><div class="msg"><span class="u" style="color:#ffa6cf"><span class="bdk show" title="Bot"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect width="18" height="18" rx="3" fill="#53fc18"/><path d="M9 3.4v1.6" stroke="#0a1a03" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="3.2" r="1" fill="#0a1a03"/><rect x="3.8" y="5.2" width="10.4" height="8" rx="2.2" fill="#0a1a03"/><circle cx="6.9" cy="9" r="1.3" fill="#53fc18"/><circle cx="11.1" cy="9" r="1.3" fill="#53fc18"/><path d="M7 11.6h4" stroke="#53fc18" stroke-width="1" stroke-linecap="round"/></svg></span>ChitChatBot:</span> 🇫🇷 lucas_fr: lmao he <span class="nw">missed <img class="emo" src="emotes/KEKW.webp" alt="KEKW" title="KEKW"></span></div><div class="msg"><span class="bdt show" title="Subscriber"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect width="18" height="18" rx="3" fill="#9146ff"/><path d="M9 3.2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L9 11.9 5.5 13.9l.8-3.9-2.9-2.7 3.9-.5z" fill="#fff"/></svg></span><span class="u" style="color:#ffb454">min_jae:</span> 오늘 방송 진짜 재밌어요 </div><div class="msg"><span class="u" style="color:#ffa6cf"><span class="bdt show" title="Bot"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect width="18" height="18" rx="3" fill="#9146ff"/><path d="M9 3.4v1.6" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="3.2" r="1" fill="#fff"/><rect x="3.8" y="5.2" width="10.4" height="8" rx="2.2" fill="#fff"/><circle cx="6.9" cy="9" r="1.3" fill="#9146ff"/><circle cx="11.1" cy="9" r="1.3" fill="#9146ff"/><path d="M7 11.6h4" stroke="#9146ff" stroke-width="1" stroke-linecap="round"/></svg></span>ChitChatBot:</span> 🇰🇷 min_jae: Today's stream is really fun</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="steps" aria-label="How it works">
+    <div class="st"><b class="n">1</b><h3>Sign in with Kick</h3><p>One click. We never see your password and we never save your chat.</p></div>
+    <div class="st"><b class="n">2</b><h3>Pick your language</h3><p>Anything that isn't in it gets a translation underneath.</p></div>
+    <div class="st"><b class="n">3</b><h3>Flip the switch</h3><p>Or type <code>!translate on</code> in chat. Mods can too, if you let them.</p></div>
+  </section>
+
+  <section class="stt">
+    <h2>It behaves itself.</h2>
+    <p>Messages under 3 words are skipped, so "lol" stays "lol". Each person gets a pause between translations, and the bot caps itself per minute, so it never floods your chat.</p>
+  </section>
+
+  <section class="row" id="viewer">
+    <div class="rowcopy">
+      <span class="pill">FOR VIEWERS</span>
+      <h2>ChitChatBot Viewer</h2>
+      <p>Watching a stream whose chat speaks something else? This free extension puts a translation under every message on Kick, Twitch, YouTube and TikTok, and lets you write back in their language. Your emotes survive the trip.</p>
+      <div class="cta"><a class="btn primary" href="faq.html#install">Get the viewer extension</a><span class="small">Chrome and Brave, desktop.</span></div>
     </div>
     <div class="topchat site-kick" data-wrap>
       <div class="pt" role="group" aria-label="Platform"><button type="button" data-p="kick" aria-pressed="true">Kick</button><button type="button" data-p="twitch" aria-pressed="false">Twitch</button><button type="button" data-p="youtube" aria-pressed="false">YouTube</button></div>
@@ -53,19 +95,6 @@
         <div class="pv"><div>Hola, ¿cómo están todos? <img class="emo" src="emotes/peepoHappy.webp" alt="peepoHappy" title="peepoHappy"></div></div>
         <div class="pva"><span class="go">Original<kbd>Shift+Enter</kbd></span><span class="go p">Spanish<kbd>Enter</kbd></span></div>
         <div class="cmp cmp-kick"><div class="kbox"><span class="typed">hello, how is everyone? <img class="emo" src="emotes/peepoHappy.webp" alt="peepoHappy" title="peepoHappy"></span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M8 14c1 1.6 2.2 2.3 4 2.3s3-.7 4-2.3M9 9.7h.01M15 9.7h.01" stroke="#0b0e0f" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></div><div class="krow"><span class="sp"></span><span class="kgear"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.7 7.7 0 000-2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 00-1.7-1L15 3.4h-4L10.7 6a7.5 7.5 0 00-1.7 1l-2.4-1-2 3.4 2 1.6a7.7 7.7 0 000 2l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 001.7 1l.3 2.6h4l.3-2.6a7.5 7.5 0 001.7-1l2.4 1 2-3.4zM12 15.2a3.2 3.2 0 110-6.4 3.2 3.2 0 010 6.4z"/></svg></span><span class="kchat">Chat</span></div></div><div class="cmp cmp-twitch"><div class="tbox"><span class="typed">hello, how is everyone? <img class="emo" src="emotes/peepoHappy.webp" alt="peepoHappy" title="peepoHappy"></span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M8 14c1 1.6 2.2 2.3 4 2.3s3-.7 4-2.3M9 9.7h.01M15 9.7h.01" stroke="#0b0e0f" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></div><div class="trow"><span class="sp"></span><span class="tgear"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.7 7.7 0 000-2l2-1.6-2-3.4-2.4 1a7.5 7.5 0 00-1.7-1L15 3.4h-4L10.7 6a7.5 7.5 0 00-1.7 1l-2.4-1-2 3.4 2 1.6a7.7 7.7 0 000 2l-2 1.6 2 3.4 2.4-1a7.5 7.5 0 001.7 1l.3 2.6h4l.3-2.6a7.5 7.5 0 001.7-1l2.4 1 2-3.4zM12 15.2a3.2 3.2 0 110-6.4 3.2 3.2 0 010 6.4z"/></svg></span><span class="tchat">Chat</span></div></div><div class="cmp cmp-yt"><div class="yid"><span class="yav">N</span><span class="ynm">NotABot_Promise</span></div><div class="ybox"><span class="typed">hello, how is everyone? <img class="emo" src="emotes/peepoHappy.webp" alt="peepoHappy" title="peepoHappy"></span></div><div class="yrow"><span class="yic"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="currentColor"/><path d="M8 14c1 1.6 2.2 2.3 4 2.3s3-.7 4-2.3M9 9.7h.01M15 9.7h.01" stroke="#0b0e0f" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></span><span class="sp"></span><span class="ycount">22/200</span><span class="ysend"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 20.5l18-8.5L3 3.5v6.6l12 1.9-12 1.9z"/></svg></span></div></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="row soon">
-    <div class="rowcopy">
-      <span class="pill">COMING SOON</span>
-      <h2>A bot. Because one thing is never enough.</h2>
-      <p>A chat bot for Twitch and Kick that translates inside your channel, so everyone sees it, not just people with the extension. Yes, we're building another thing. Stop looking at us like that.</p>
-    </div>
-    <div class="site-kick rowchat soonchat">
-      <div class="chat" role="img" aria-label="Chat where the ChitChatBot bot replies with translations">
-        <div class="msg"><span class="bdgs show"><img src="badges/verified.svg" alt="Verified" title="Verified"></span><span class="u" style="color:#b48cff">lucas_fr:</span> mdr il a <span class="nw">raté <img class="emo" src="emotes/KEKW.webp" alt="KEKW" title="KEKW"></span></div><div class="msg"><span class="u" style="color:#ffa6cf"><span class="bdk show" title="Bot"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect width="18" height="18" rx="3" fill="#53fc18"/><path d="M9 3.4v1.6" stroke="#0a1a03" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="3.2" r="1" fill="#0a1a03"/><rect x="3.8" y="5.2" width="10.4" height="8" rx="2.2" fill="#0a1a03"/><circle cx="6.9" cy="9" r="1.3" fill="#53fc18"/><circle cx="11.1" cy="9" r="1.3" fill="#53fc18"/><path d="M7 11.6h4" stroke="#53fc18" stroke-width="1" stroke-linecap="round"/></svg></span>ChitChatBot:</span> <span class="ref">lucas_fr</span> (French) lmao he <span class="nw">missed <img class="emo" src="emotes/KEKW.webp" alt="KEKW" title="KEKW"></span></div><div class="msg"><span class="bdt show" title="Subscriber"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect width="18" height="18" rx="3" fill="#9146ff"/><path d="M9 3.2l1.7 3.6 3.9.5-2.9 2.7.8 3.9L9 11.9 5.5 13.9l.8-3.9-2.9-2.7 3.9-.5z" fill="#fff"/></svg></span><span class="u" style="color:#ffb454">min_jae:</span> 오늘 방송 진짜 재밌어요 </div><div class="msg"><span class="u" style="color:#ffa6cf"><span class="bdt show" title="Bot"><svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><rect width="18" height="18" rx="3" fill="#9146ff"/><path d="M9 3.4v1.6" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/><circle cx="9" cy="3.2" r="1" fill="#fff"/><rect x="3.8" y="5.2" width="10.4" height="8" rx="2.2" fill="#fff"/><circle cx="6.9" cy="9" r="1.3" fill="#9146ff"/><circle cx="11.1" cy="9" r="1.3" fill="#9146ff"/><path d="M7 11.6h4" stroke="#9146ff" stroke-width="1" stroke-linecap="round"/></svg></span>ChitChatBot:</span> <span class="ref">min_jae</span> (Korean) Today's stream is really fun</div>
       </div>
     </div>
   </section>
