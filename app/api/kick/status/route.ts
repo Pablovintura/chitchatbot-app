@@ -9,7 +9,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const ch = await currentChannel();
   if (!ch) return NextResponse.json({ connected: false, kickReady: Boolean(process.env.KICK_CLIENT_ID && process.env.KICK_CLIENT_SECRET), translatorReady: configured() });
-  const { data } = await db().from('settings').select('enabled, cooldown_seconds, home_language, mods_can_toggle, skip_list').eq('channel_id', ch.id).maybeSingle();
+  // Every column, so one missing column can't make the whole read fail (and switch the translator off).
+  const { data } = await db().from('settings').select('*').eq('channel_id', ch.id).maybeSingle();
   return NextResponse.json({
     connected: true, channel: ch.channel_name, translatorReady: configured(), admin: isAdmin(ch),
     enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30),

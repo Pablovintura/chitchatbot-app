@@ -48,7 +48,8 @@ export function dropSettingsCache(channelId: string) { cache.delete(channelId); 
 async function settingsFor(channelId: string): Promise<Settings> {
   const hit = cache.get(channelId);
   if (hit && Date.now() - hit.at < 30000) return hit;
-  const { data } = await db().from('settings').select('enabled, cooldown_seconds, home_language, mods_can_toggle, skip_list').eq('channel_id', channelId).maybeSingle();
+  // Every column, so one missing column can't make the whole read fail (and switch the translator off).
+  const { data } = await db().from('settings').select('*').eq('channel_id', channelId).maybeSingle();
   const home = String(data?.home_language || 'en');
   const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), skip: new Set<string>((Array.isArray(data?.skip_list) ? data.skip_list : []).map((x: string) => skipKey(String(x)))), at: Date.now() };
   cache.set(channelId, s);
