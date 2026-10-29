@@ -23,6 +23,18 @@ export const configured = () => Boolean(tidy(process.env.CF_ACCOUNT_ID) && tidy(
 // Our own lines look like "🇪🇸 pedro: hello". Never translate those back.
 const OWN_LINE = /^(?:\p{Regional_Indicator}{2}|🌐) [^\s:]+: /u;
 
+// Every chat message of every linked channel arrives here, so the channel lookup is remembered for a minute
+// instead of asking the database each time.
+const chanCache = new Map<string, { id: string; account_id: string; at: number } | { id: null; at: number }>();
+async function channelFor(broadcasterId: string): Promise<{ id: string; account_id: string } | null> {
+  const hit = chanCache.get(broadcasterId);
+  if (hit && Date.now() - hit.at < 60000) return hit.id ? (hit as { id: string; account_id: string }) : null;
+  const { data } = await db().from('channels').select('id, account_id').eq('platform', 'kick').eq('platform_user_id', broadcasterId).maybeSingle();
+  if (chanCache.size > 2000) chanCache.clear();
+  chanCache.set(broadcasterId, data ? { id: data.id as string, account_id: data.account_id as string, at: Date.now() } : { id: null, at: Date.now() });
+  return data ? { id: data.id as string, account_id: data.account_id as string } : null;
+}
+
 export function dropSettingsCache(channelId: string) { cache.delete(channelId); }
 
 async function settingsFor(channelId: string): Promise<Settings> {
@@ -71,9 +83,9 @@ export async function onChat(ev: ChatEvent) {
     if (!msg || OWN_LINE.test(msg)) return; // our own lines
     if (process.env.KICK_BOT_USER_ID && ev.senderId === process.env.KICK_BOT_USER_ID) return;
 
-    const { data: ch } = await db().from('channels').select('id, account_id').eq('platform', 'kick').eq('platform_user_id', ev.broadcasterId).maybeSingle();
+    const ch = await channelFor(ev.broadcasterId);
     if (!ch) return;
-    const channelId = ch.id as string;
+    const channelId = ch.id;
 
     // !translate on / off: same switch as the dashboard. Broadcaster only, others are ignored quietly.
     const sw = msg.match(/^!translate\s+(on|off)\s*$/i);
@@ -119,7 +131,7 @@ export async function onChat(ev: ChatEvent) {
       let line = `${flagFor(source)} ${ev.username.replace(/^@+/, '')}: ${english}`;
       if (line.length > MAX_CHAT) line = line.slice(0, MAX_CHAT - 1) + '…';
       await sendChat(channelId, line);
-      await countUsage(ch.account_id as string, body.length).catch(() => {});
+      await countUsage(ch.account_id, body.length).catch(() => {});
     } finally {
       busy.set(channelId, Math.max(0, (busy.get(channelId) || 1) - 1));
     }
