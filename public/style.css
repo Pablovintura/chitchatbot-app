@@ -136,3 +136,6 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 .rq .rqt{color:rgb(var(--p));margin-top:1px}
 .cmp .emo,.pv .emo{height:2em;vertical-align:-.6em}
 .site-youtube .rmsg{display:none}
+ol.log .when{gap:8px;align-items:flex-start}
+ol.log .when b{font-size:15px;font-weight:600;color:var(--muted)}
+.tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:#1a2224;color:var(--fg)}
