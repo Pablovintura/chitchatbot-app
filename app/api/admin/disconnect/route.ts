@@ -5,7 +5,7 @@ import { isAdmin, disconnectChannel } from '@/lib/admin';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
-  if (!isAdmin(await currentChannel())) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!isAdmin(await currentChannel('kick'))) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const b = await req.json().catch(() => ({}));
   if (typeof b.id !== 'string') return NextResponse.json({ error: 'Missing channel.' }, { status: 400 });
   await disconnectChannel(b.id);

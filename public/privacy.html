@@ -33,12 +33,12 @@
   <h2>What is stored</h2>
   <p>Your settings (language, switches) are saved with the browser's extension storage. If you are signed in to Chrome with sync turned on, Chrome may sync these settings across your devices. Chat messages and translations are kept in memory while the page is open and are not saved.</p>
 
-  <h2>The Kick bot (for streamers)</h2>
+  <h2>The bot (for streamers)</h2>
   <ul>
-    <li><b>Signing in.</b> You sign in with Kick. We never see your Kick password. We keep your Kick user id, your channel name and the access tokens Kick gives us, which are stored encrypted, so the bot can read and post in your chat.</li>
-    <li><b>Chat.</b> Kick sends your channel's chat messages to our server. Messages are checked in memory. Only messages in another language are sent to Cloudflare (Workers AI) to be translated, then the translation is posted in your chat. Chat messages, usernames and translations are not saved or logged by us.</li>
+    <li><b>Signing in.</b> You sign in with Kick or Twitch. We never see your password. For Kick we keep your Kick user id, your channel name and the access tokens Kick gives us, which are stored encrypted, so the bot can read and post in your chat. For Twitch we keep only your Twitch user id and channel name, and no token: the bot posts from its own account.</li>
+    <li><b>Chat.</b> Kick or Twitch sends your channel's chat messages to our server. Messages are checked in memory. Only messages in another language are sent to Cloudflare (Workers AI) to be translated, then the translation is posted in your chat. Chat messages, usernames and translations are not saved or logged by us.</li>
     <li><b>What is saved.</b> Your settings (switch, language, pause, mods option) and how many characters were translated each month, which is a number only.</li>
-    <li><b>Leaving.</b> "Disconnect Kick" in the dashboard deletes the saved tokens and turns the bot off.</li>
+    <li><b>Leaving.</b> "Disconnect" on a channel in the dashboard deletes the saved tokens and turns the bot off for it.</li>
   </ul>
 
   <h2>Bug reports</h2>

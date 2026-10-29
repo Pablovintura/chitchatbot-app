@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // Who signed up and how much they used. No chat text exists anywhere to show.
 export async function GET() {
-  if (!isAdmin(await currentChannel())) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!isAdmin(await currentChannel('kick'))) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const month = new Date().toISOString().slice(0, 8) + '01';
   const [ch, st, us, ac] = await Promise.all([
     db().from('channels').select('id, account_id, channel_name, created_at, access_token_enc, platform').order('created_at', { ascending: false }).limit(500),

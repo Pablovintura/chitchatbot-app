@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { currentChannel } from '@/lib/session';
 import { sendChat as kickSend } from '@/lib/kick';
 import { sendChat as twitchSend } from '@/lib/twitch';
@@ -6,8 +6,9 @@ import { sendChat as twitchSend } from '@/lib/twitch';
 export const dynamic = 'force-dynamic';
 
 // Posts one line in the signed-in channel's chat (Kick or Twitch), so you can see the link works.
-export async function POST() {
-  const ch = await currentChannel();
+export async function POST(req: NextRequest) {
+  const b = await req.json().catch(() => ({}));
+  const ch = await currentChannel(typeof b.platform === 'string' ? b.platform : null);
   if (!ch) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
   try {
     const line = '🌐 ChitChatBot: hola chat, I am alive!';

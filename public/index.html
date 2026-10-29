@@ -4,15 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ChitChatBot</title>
-<meta name="description" content="A bot that translates your Kick chat right inside your channel, plus a free viewer extension for Kick, Twitch, YouTube, TikTok and Rumble.">
+<meta name="description" content="A bot that translates your Kick or Twitch chat right inside your channel, plus a free viewer extension for Kick, Twitch, YouTube, TikTok and Rumble.">
 <link rel="canonical" href="https://chitchatbot.stream/">
 <link rel="icon" type="image/png" href="favicon.png">
 <meta property="og:title" content="ChitChatBot">
-<meta property="og:description" content="A bot that translates your Kick chat, and a free viewer extension for live chat everywhere.">
+<meta property="og:description" content="A bot that translates your Kick or Twitch chat, and a free viewer extension for live chat everywhere.">
 <meta property="og:image" content="https://chitchatbot.stream/logo.png">
 <link rel="stylesheet" href="style.css?v=20261028b">
 <style>
 .kickbtn{background:#53fc18;border-color:#53fc18;color:#0a1a03;font-weight:800}
+.twbtn{background:#9146ff;border-color:#9146ff;color:#fff;font-weight:800}
 .btn{border-radius:6px;padding:7px 14px;font-size:14px}
 .chat,.st,.pv,.inp{border-radius:8px}
 .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:44px 0 8px;border-top:1px solid var(--line)}
@@ -87,8 +88,8 @@ header.site nav a[href*="stripe"]:hover{color:#ffc4de}
   <section class="top botsec" id="streamers">
     <div class="topcopy">
       <h2>Your chat, translated. By a bot with manners.</h2>
-      <p class="lede">The bot sits in your Kick channel and puts a translation under anything that isn't in your language. Everyone sees it, nobody installs anything, and you can finally stop nodding along.</p>
-      <div class="cta"><a class="btn kickbtn" href="/dashboard">Sign in with Kick</a><span class="small">Free. 50,000 characters a month. Twitch is next.</span></div>
+      <p class="lede">The bot sits in your Kick or Twitch channel and puts a translation under anything that isn't in your language. Everyone sees it, nobody installs anything, and you can finally stop nodding along.</p>
+      <div class="cta"><a class="btn kickbtn" href="/api/kick/login">Sign in with Kick</a><a class="btn twbtn" href="/api/twitch/login">Sign in with Twitch</a><span class="small">Free. 50,000 characters a month.</span></div>
     </div>
     <div class="topchat site-kick soonchat">
       <div class="chat" role="img" aria-label="Chat where the ChitChatBot bot replies with translations">
@@ -98,7 +99,7 @@ header.site nav a[href*="stripe"]:hover{color:#ffc4de}
     </div>
   </section>
   <section class="steps" aria-label="How it works">
-    <div class="st"><b class="n">1</b><h3>Sign in with Kick</h3><p>One click. We never see your password and we never save your chat.</p></div>
+    <div class="st"><b class="n">1</b><h3>Sign in with Kick or Twitch</h3><p>One click. We never see your password and we never save your chat.</p></div>
     <div class="st"><b class="n">2</b><h3>Pick your language</h3><p>Anything that isn't in it gets a translation underneath.</p></div>
     <div class="st"><b class="n">3</b><h3>Flip the switch</h3><p>Or type <code>!translate on</code> in chat. Mods can too, if you let them.</p></div>
   </section>

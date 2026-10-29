@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic';
 
 // Saves only the fields that are sent: enabled, cooldown (0-600 s), language, mods, skipAdd / skipRemove (one username).
 export async function POST(req: NextRequest) {
-  const ch = await currentChannel();
-  if (!ch) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
   const b = await req.json().catch(() => ({}));
+  const ch = await currentChannel(typeof b.platform === 'string' ? b.platform : null);
+  if (!ch) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
   const row: Record<string, unknown> = { channel_id: ch.id, updated_at: new Date().toISOString() };
   if ('enabled' in b) {
     if (b.enabled === true && !configured()) return NextResponse.json({ error: 'The translation key is missing on the server.' }, { status: 400 });

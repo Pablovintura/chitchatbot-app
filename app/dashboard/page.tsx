@@ -1,8 +1,8 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Status = {
-  connected: boolean; platform?: 'kick' | 'twitch'; kickReady?: boolean; twitchReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
+  connected: boolean; platform?: 'kick' | 'twitch'; channels?: { platform: 'kick' | 'twitch'; name: string }[]; kickReady?: boolean; twitchReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
   enabled?: boolean; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[];
 };
 
@@ -12,15 +12,22 @@ const NOTES: Record<string, string> = { connected: 'Kick connected.', denied: 'K
 const TNOTES: Record<string, string> = { connected: 'Twitch connected.', denied: 'Twitch sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Twitch.', botok: 'The bot account is set. Now streamers can connect.' };
 
 export default function Dashboard() {
+  const viewRef = useRef('');
   const [s, setS] = useState<Status | null>(null);
   const [msg, setMsg] = useState('');
   const [name, setName] = useState('');
   const [skipMsg, setSkipMsg] = useState('');
+  const [view, setView] = useState<'kick' | 'twitch' | ''>('');
+  viewRef.current = view;
 
-  const load = useCallback(async () => { setS(await fetch('/api/kick/status').then(r => r.json())); }, []);
+  const load = useCallback(async (p?: string) => {
+    const r = await fetch(`/api/kick/status${p ? `?p=${p}` : ''}`).then(r => r.json());
+    setS(r);
+    if (r.connected && r.platform) setView(r.platform);
+  }, []);
   useEffect(() => {
-    load();
-    const onFocus = () => load(); // !translate in chat changes the switch, so refresh when you come back
+    load(new URLSearchParams(location.search).get('twitch') ? 'twitch' : undefined);
+    const onFocus = () => load(viewRef.current || undefined); // !translate in chat changes the switch, so refresh when you come back
     window.addEventListener('focus', onFocus);
     const k = new URLSearchParams(location.search).get('kick');
     if (k && NOTES[k]) setMsg(NOTES[k]);
@@ -32,19 +39,19 @@ export default function Dashboard() {
   // Show the change right away, then save it. If saving fails, go back to what the server has.
   const save = async (patch: Partial<Status>, body: Record<string, unknown>) => {
     setS(prev => (prev ? { ...prev, ...patch } : prev));
-    const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!r.ok) { setMsg((await r.json().catch(() => ({}))).error || 'Could not save.'); load(); } else setMsg('');
+    const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, platform: view }) });
+    if (!r.ok) { setMsg((await r.json().catch(() => ({}))).error || 'Could not save.'); load(view); } else setMsg('');
   };
   const skip = async (body: { skipAdd: string } | { skipRemove: string }, ok: string) => {
-    const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, platform: view }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setSkipMsg(j.error || 'Could not save.'); return; }
     setS(prev => (prev ? { ...prev, skip: j.skip || [] } : prev));
     setSkipMsg(ok);
     if ('skipAdd' in body) setName('');
   };
-  const test = async () => { const r = await fetch('/api/kick/test', { method: 'POST' }); setMsg(r.ok ? 'Sent. Check your chat.' : (await r.json().catch(() => ({}))).error || 'Could not send.'); };
-  const out = async () => { await fetch('/api/kick/disconnect', { method: 'POST' }); setMsg(''); load(); };
+  const test = async () => { const r = await fetch('/api/kick/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: view }) }); setMsg(r.ok ? 'Sent. Check your chat.' : (await r.json().catch(() => ({}))).error || 'Could not send.'); };
+  const out = async (p?: string) => { await fetch('/api/kick/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: p || view }) }); setMsg(''); setView(''); load(); };
 
   const P = s?.platform === 'twitch' ? 'Twitch' : 'Kick';
   const lang = LANGS[s?.language || 'en'] || 'English';
@@ -58,7 +65,6 @@ export default function Dashboard() {
         <nav>
           <a href="/faq.html">FAQ</a>
           {s?.connected && s.admin && <a href="/admin">Admin</a>}
-          {s?.connected && <button onClick={out}>Sign out</button>}
         </nav>
       </div></header>
 
@@ -81,6 +87,20 @@ export default function Dashboard() {
         {s?.connected && (
           <section>
             <h1>Hey, {s.channel}.</h1>
+            <div className="plats">
+              {(['kick', 'twitch'] as const).map(p => {
+                const mine = (s.channels || []).find(c => c.platform === p);
+                const nm = p === 'kick' ? 'Kick' : 'Twitch';
+                const ready = p === 'kick' ? s.kickReady : s.twitchReady;
+                if (!mine) return ready ? <a key={p} className={`plat ${p === 'kick' ? 'k' : 't'} off`} href={`/api/${p}/login`}><i></i><span><b>{nm}</b><small>not linked</small></span><span className="go">Connect {nm}</span></a> : null;
+                return (
+                  <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${view === p ? ' sel' : ''}`} role="button" tabIndex={0} onClick={() => { if (view !== p) { setView(p); load(p); } }} onKeyDown={e => { if (e.key === 'Enter' && view !== p) { setView(p); load(p); } }}>
+                    <i></i><span><b>{nm}</b><small>{mine.name}</small></span>
+                    <button type="button" className="x" onClick={e => { e.stopPropagation(); out(p); }}>Disconnect</button>
+                  </div>
+                );
+              })}
+            </div>
             <p className="on"><i></i>Connected to {P}. Chat can't hide.</p>
             {msg && <p className="msg">{msg}</p>}
 
@@ -136,7 +156,7 @@ export default function Dashboard() {
             </div>
 
             {!s.translatorReady && <p className="note">The translation key isn't set on the server yet.</p>}
-            <div className="foot"><button onClick={test}>Send a test line</button><button className="danger" onClick={out}>Disconnect {P} (we'll be fine)</button></div>
+            <div className="foot"><button onClick={test}>Send a test line</button></div>
           </section>
         )}
       </main>
