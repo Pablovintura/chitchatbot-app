@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/supabase';
-import { currentChannel } from '@/lib/session';
+import { currentChannel, accountChannels } from '@/lib/session';
 import { configured, dropSettingsCache, LANGUAGES, SKIP_MAX, skipKey } from '@/lib/translator';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +43,15 @@ export async function POST(req: NextRequest) {
   const { error } = await db().from('settings').upsert(row, { onConflict: 'channel_id' });
   if (error) return NextResponse.json({ error: 'Could not save.' }, { status: 500 });
   dropSettingsCache(ch.id);
+  // Language, pause, mods and the skip list are one setting for both channels. Only on/off is per channel.
+  const shared: Record<string, unknown> = {};
+  for (const k of ['cooldown_seconds', 'home_language', 'mods_can_toggle', 'skip_list']) if (k in row) shared[k] = row[k];
+  if (Object.keys(shared).length) {
+    for (const o of (await accountChannels(ch.account_id)).filter(c => c.connected && c.id !== ch.id)) {
+      await db().from('settings').upsert({ channel_id: o.id, updated_at: row.updated_at, ...shared }, { onConflict: 'channel_id' });
+      dropSettingsCache(o.id);
+    }
+  }
   if ('enabled' in row) await db().from('settings').update({ toggled_by: 'the dashboard', toggled_at: new Date().toISOString() }).eq('channel_id', ch.id).then(() => {}, () => {}); // note only; fine if the columns aren't there yet
   return NextResponse.json({ ok: true, skip: row.skip_list });
 }

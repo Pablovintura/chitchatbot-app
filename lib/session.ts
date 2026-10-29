@@ -66,5 +66,14 @@ export async function attachChannel(platform: 'kick' | 'twitch', platformUserId:
     channelId = ch.data.id as string;
     await dbc.from('settings').insert({ channel_id: channelId });
   }
+  // A channel joining an account that already has one starts with the same language, pause, mods option and skip list.
+  const other = (await accountChannels(accountId!)).find(c => c.id !== channelId);
+  if (other) {
+    const src = await dbc.from('settings').select('*').eq('channel_id', other.id).maybeSingle();
+    if (src.data) {
+      const d = src.data as any;
+      await dbc.from('settings').upsert({ channel_id: channelId, home_language: d.home_language, cooldown_seconds: d.cooldown_seconds, mods_can_toggle: d.mods_can_toggle, skip_list: d.skip_list, updated_at: new Date().toISOString() }, { onConflict: 'channel_id' });
+    }
+  }
   return { channelId: channelId!, accountId: accountId! };
 }

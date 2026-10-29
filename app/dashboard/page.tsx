@@ -19,6 +19,14 @@ const ago = (iso?: string) => {
 // "On. Switched on from the dashboard." / "Off. Paused from Kick chat, 2 min ago."
 const stateLine = (c: { enabled?: boolean; by?: string; at?: string }) =>
   c.enabled ? `On. ${c.by ? `Switched on from ${c.by}${ago(c.at)}.` : 'Translating chat.'}` : `Off. ${c.by ? `${c.by === 'the dashboard' ? 'Switched off' : 'Paused'} from ${c.by}${ago(c.at)}.` : 'Chat is on its own.'}`;
+const EX: Record<string, { flag: string; user: string; orig: string; tr: string }> = {
+  en: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol how good the stream was' },
+  es: { flag: '🇺🇸', user: 'jake_nyc', orig: 'that last play was so clean', tr: 'esa última jugada estuvo muy limpia' },
+  pt: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'kkkk que legal foi a stream' },
+  fr: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'mdr trop bien le stream' },
+  ja: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: '笑 配信すごく良かった' },
+  ko: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'ㅋㅋㅋ 방송 진짜 좋았어' }
+};
 const NOTES: Record<string, string> = { connected: 'Kick connected.', denied: 'Kick sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Kick.' };
 const TNOTES: Record<string, string> = { connected: 'Twitch connected.', denied: 'Twitch sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Twitch.', botok: 'The bot account is set. Now streamers can connect.' };
 
@@ -74,6 +82,8 @@ export default function Dashboard() {
   const P = s?.platform === 'twitch' ? 'Twitch' : 'Kick';
   const lang = LANGS[s?.language || 'en'] || 'English';
   const used = s?.used || 0, cap = s?.cap || 50000;
+  const ex = EX[s?.language || 'en'] || EX.en;
+  const anyOn = (s?.channels || []).some(c => c.enabled);
   const pauses = s?.cooldown != null && !PAUSES.some(p => p[0] === s.cooldown) ? [...PAUSES, [s.cooldown, `${s.cooldown} sec`] as [number, string]] : PAUSES;
 
   return (
@@ -94,7 +104,7 @@ export default function Dashboard() {
             <h1>Is chat roasting you? Now you'll know.</h1>
             <p className="lede">Link your Kick or Twitch channel and the bot puts a translation under every message that isn't in your language.</p>
             <div className="cta">
-              {s.kickReady ? <a className="btn" href="/api/kick/login">Sign in with Kick</a> : <span className="small">Kick app settings are missing on the server.</span>}
+              {s.kickReady ? <a className="btn kick" href="/api/kick/login">Sign in with Kick</a> : <span className="small">Kick app settings are missing on the server.</span>}
               {s.twitchReady && <a className="btn twitch" href="/api/twitch/login">Sign in with Twitch</a>}
               <span className="small">Free. Your chat isn't saved.</span>
             </div>
@@ -121,7 +131,7 @@ export default function Dashboard() {
                 );
               })}
             </div>
-            <p className="on"><i></i>Connected to {P}. Chat can't hide.</p>
+            <p className={`on ${view}`}><i></i>Connected to {P}. Chat can't hide.</p>
             {msg && <p className="msg">{msg}</p>}
 
             <div className="sheet">
@@ -130,10 +140,9 @@ export default function Dashboard() {
                   <div>
                     <div className="t">Commands</div>
                     <div className="d">Type them in either chat.{s.mods ? ' You and your mods can.' : ''}</div>
-                    <div className="cmdgrid">
-                      <div><code>!translate off</code><span className="d">off in this chat</span></div>
-                      <div><code>!translate on</code><span className="d">on in this chat</span></div>
-                      {(s.channels || []).length > 1 && <><div><code>!translate off all</code><span className="d">off in both chats</span></div><div><code>!translate on all</code><span className="d">on in both chats</span></div></>}
+                    <div className={`cmdcols${(s.channels || []).length > 1 ? '' : ' one'}`}>
+                      <div className="cc"><div className="ch">{(s.channels || []).length > 1 ? 'This chat' : 'In chat'}</div><div className="cl"><code>!translate off</code><span className="d">off</span></div><div className="cl"><code>!translate on</code><span className="d">on</span></div></div>
+                      {(s.channels || []).length > 1 && <div className="cc"><div className="ch">Both chats</div><div className="cl"><code>!translate off all</code><span className="d">off</span></div><div className="cl"><code>!translate on all</code><span className="d">on</span></div></div>}
                     </div>
                   </div>
                 </div>
@@ -159,10 +168,10 @@ export default function Dashboard() {
 
               <div className="item">
                 <div className="row"><div className="t">Skip list</div><span className="d">{(s.skip || []).length} of 50</span></div>
-                <div className="d">The bot won't translate these chatters. Other bots, mostly.</div>
+                <div className="d">The bot won't translate these chatters{(s.channels || []).length > 1 ? ' on Kick or Twitch' : ''}. Other bots, mostly.</div>
                 <form className="skipadd" onSubmit={e => { e.preventDefault(); const v = name.trim().replace(/^@+/, ''); if (v) skip({ skipAdd: v }, `${v} is skipped. Their messages stay as they are.`); }}>
-                  <input value={name} onChange={e => setName(e.target.value)} placeholder={`${P} username`} autoComplete="off" aria-label={`${P} username`} maxLength={40} />
-                  <button className="btn" type="submit">Add</button>
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="Username" autoComplete="off" aria-label="Username" maxLength={40} />
+                  <button className="btn pink" type="submit">Add</button>
                 </form>
                 {skipMsg && <div className="skipnote" aria-live="polite">{skipMsg}</div>}
                 <div className="chips">
@@ -172,11 +181,16 @@ export default function Dashboard() {
               </div>
 
               <div className="item">
-                <div className="row"><div className="t">Free plan</div><span className="d">{used.toLocaleString()} of {cap.toLocaleString()} characters. Plenty left.</span></div>
+                <div className="row"><div className="t" style={{ whiteSpace: 'nowrap' }}>Free plan</div><span className="d">{used.toLocaleString()} of {cap.toLocaleString()} characters. Plenty left.</span></div>
                 <div className="line"><i style={{ width: `${Math.min(100, (used / cap) * 100)}%` }} /></div>
                 {used >= cap && <div className="d" style={{ marginTop: 10 }}>You've used this month's free translations. The bot is quiet until next month.</div>}
               </div>
             </div>
+
+            <div className="ex"><div className="exh">What chat will see</div><div className="chatbox">
+              <div className="m"><span className="u" style={{ color: '#b48cff' }}>{ex.user}:</span> {ex.orig}</div>
+              {anyOn ? <div className="m"><span className="u b">ChitChatBot:</span> {ex.flag} {ex.user}: {ex.tr}</div> : <div className="m d">Translator is off, so chat is on its own. Good luck.</div>}
+            </div></div>
 
             {!s.translatorReady && <p className="note">The translation key isn't set on the server yet.</p>}
           </section>
