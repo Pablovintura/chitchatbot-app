@@ -21,7 +21,8 @@ export async function POST(req: NextRequest) {
           broadcasterId: String(p.broadcaster.user_id),
           senderId: String(p.sender.user_id),
           username: String(p.sender.username || ''),
-          text: String(p.content || '')
+          text: String(p.content || ''),
+          isMod: Array.isArray(p.sender?.identity?.badges) && p.sender.identity.badges.some((b: any) => ['moderator', 'broadcaster'].includes(String(b?.type || '').toLowerCase()))
         });
       }
     } catch { /* ignore malformed */ }

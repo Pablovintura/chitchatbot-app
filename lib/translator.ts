@@ -1,4 +1,4 @@
-import { cleanForDetect, detectLanguage, flagFor } from './detect';
+import { cleanForDetect, detectLanguage, flagFor, looksEnglish } from './detect';
 import { db } from './supabase';
 import { sendChat } from './kick';
 
@@ -8,13 +8,19 @@ import { sendChat } from './kick';
 const PER_MINUTE = 6;
 const MAX_CHAT = 500;
 const MODEL = '@cf/meta/m2m100-1.2b';
+export const FREE_CAP = 50000;                       // characters per channel per month on the free plan
+const DAILY_MAX = Number(process.env.DAILY_TRANSLATIONS) || 8000; // safety stop for the shared Cloudflare allowance (resets each UTC day)
+export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
 
-type Settings = { enabled: boolean; cooldown: number; at: number };
+type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; at: number };
 const cache = new Map<string, Settings>();           // channel id -> settings (30 s)
 const lastByUser = new Map<string, number>();         // channel:user -> last translated
 const recent = new Map<string, number[]>();           // channel -> times in the last minute
 const busy = new Map<string, number>();
-const seen = new Set<string>();                       // webhook message ids already handled
+const seen = new Set<string>();
+let dayKey = '', dayCount = 0;
+const underDailyMax = () => { const d = new Date().toISOString().slice(0, 10); if (d !== dayKey) { dayKey = d; dayCount = 0; } return dayCount < DAILY_MAX; };
+const usageCache = new Map<string, { month: string; chars: number; at: number }>();                       // webhook message ids already handled
 
 // Forgiving about how the values were pasted: spaces, quotes or a leading "Bearer " are removed.
 const tidy = (v?: string) => String(v || '').trim().replace(/^["']+|["']+$/g, '').replace(/^Bearer\s+/i, '').trim();
@@ -40,17 +46,18 @@ export function dropSettingsCache(channelId: string) { cache.delete(channelId); 
 async function settingsFor(channelId: string): Promise<Settings> {
   const hit = cache.get(channelId);
   if (hit && Date.now() - hit.at < 30000) return hit;
-  const { data } = await db().from('settings').select('enabled, cooldown_seconds').eq('channel_id', channelId).maybeSingle();
-  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), at: Date.now() };
+  const { data } = await db().from('settings').select('enabled, cooldown_seconds, home_language, mods_can_toggle').eq('channel_id', channelId).maybeSingle();
+  const home = String(data?.home_language || 'en');
+  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), at: Date.now() };
   cache.set(channelId, s);
   return s;
 }
 
-async function translate(text: string, source: string): Promise<string> {
+async function translate(text: string, source: string, target: string): Promise<string> {
   const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(tidy(process.env.CF_ACCOUNT_ID))}/ai/run/${MODEL}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${tidy(process.env.CF_AI_TOKEN)}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, source_lang: source, target_lang: 'en' }),
+    body: JSON.stringify({ text, source_lang: source, target_lang: target }),
     signal: AbortSignal.timeout(8000)
   });
   const body: any = await res.json().catch(() => null);
@@ -62,13 +69,29 @@ async function translate(text: string, source: string): Promise<string> {
   return out.trim();
 }
 
-async function countUsage(accountId: string, chars: number) {
-  const month = new Date().toISOString().slice(0, 8) + '01';
+const monthStart = () => new Date().toISOString().slice(0, 8) + '01';
+
+// Characters used this month. Remembered for 30 s and bumped locally so a busy chat does not hit the database every line.
+export async function usedThisMonth(accountId: string): Promise<number> {
+  const month = monthStart();
+  const hit = usageCache.get(accountId);
+  if (hit && hit.month === month && Date.now() - hit.at < 30000) return hit.chars;
   const { data } = await db().from('usage').select('characters').eq('account_id', accountId).eq('month', month).maybeSingle();
-  await db().from('usage').upsert({ account_id: accountId, month, characters: Number(data?.characters || 0) + chars }, { onConflict: 'account_id,month' });
+  const chars = Number(data?.characters || 0);
+  if (usageCache.size > 2000) usageCache.clear();
+  usageCache.set(accountId, { month, chars, at: Date.now() });
+  return chars;
 }
 
-export type ChatEvent = { messageId: string | null; broadcasterId: string; senderId: string; username: string; text: string };
+async function countUsage(accountId: string, chars: number) {
+  const month = monthStart();
+  const before = await usedThisMonth(accountId);
+  const chars2 = before + chars;
+  usageCache.set(accountId, { month, chars: chars2, at: Date.now() });
+  await db().from('usage').upsert({ account_id: accountId, month, characters: chars2 }, { onConflict: 'account_id,month' });
+}
+
+export type ChatEvent = { messageId: string | null; broadcasterId: string; senderId: string; username: string; text: string; isMod?: boolean };
 
 // Runs after the webhook has already been answered. Never throws.
 export async function onChat(ev: ChatEvent) {
@@ -90,13 +113,14 @@ export async function onChat(ev: ChatEvent) {
     // !translate on / off: same switch as the dashboard. Broadcaster only, others are ignored quietly.
     const sw = msg.match(/^!translate\s+(on|off)\s*$/i);
     if (sw) {
-      if (ev.senderId !== ev.broadcasterId) return;
+      const allowed = ev.senderId === ev.broadcasterId || (ev.isMod && (await settingsFor(channelId)).mods);
+      if (!allowed) return;
       const enabled = sw[1].toLowerCase() === 'on';
       if (enabled && !configured()) { await sendChat(channelId, "Translate can't turn on yet: the translation key is missing."); return; }
       const { error } = await db().from('settings').upsert({ channel_id: channelId, enabled, updated_at: new Date().toISOString() }, { onConflict: 'channel_id' });
       if (error) { await sendChat(channelId, 'Could not change the translate setting.'); return; }
       dropSettingsCache(channelId);
-      await sendChat(channelId, enabled ? 'Translate is now ON. Messages in other languages get an English line in chat.' : 'Translate is now OFF.');
+      await sendChat(channelId, enabled ? `Translate is now ON. Messages not in ${LANGUAGES[(await settingsFor(channelId)).home]} get a translated line in chat.` : 'Translate is now OFF.');
       return;
     }
     if (msg.startsWith('!')) return; // other commands
@@ -110,8 +134,12 @@ export async function onChat(ev: ChatEvent) {
     const times = (recent.get(channelId) || []).filter(t => now - t < 60000);
     if (times.length >= PER_MINUTE || (busy.get(channelId) || 0) >= 3) return;
 
-    const source = detectLanguage(msg);
-    if (!source) return;
+    if (!underDailyMax()) return;
+    if ((await usedThisMonth(ch.account_id)) >= FREE_CAP) return; // free plan used up: quiet until next month
+
+    let source = detectLanguage(msg);
+    if (!source && s.home !== 'en' && looksEnglish(msg)) source = 'en';
+    if (!source || source === s.home) return;
     const body = cleanForDetect(msg).slice(0, 400);
 
     lastByUser.set(ukey, now);
@@ -120,7 +148,8 @@ export async function onChat(ev: ChatEvent) {
     recent.set(channelId, times);
     busy.set(channelId, (busy.get(channelId) || 0) + 1);
     try {
-      const english = await translate(body, source);
+      dayCount++;
+      const english = await translate(body, source, s.home);
       const plain = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
       if (!english || plain(english) === plain(body)) return;
       // Mostly the same words in and out = it was English after all (he's famous -> He is famous).
