@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
-// Bug reports from /report.html. Stores only what was typed. No address, no browser details.
+// Bug reports from /report.html. Emailed to us through Resend and not stored anywhere. No address, no browser details.
 const AREAS = ['extension', 'bot', 'website'];
 const hits = new Map<string, number[]>(); // per visitor, to keep the form from being spammed (in memory only)
 
@@ -23,8 +22,24 @@ export async function POST(req: NextRequest) {
   if (message.length < 10) return NextResponse.json({ error: 'Tell us a bit more. A sentence or two is plenty.' }, { status: 400 });
   if (message.length > 2000 || contact.length > 120) return NextResponse.json({ error: 'That is a bit long. Shorten it and try again.' }, { status: 400 });
 
-  const { error } = await db().from('reports').insert({ area, message, contact: contact || null });
-  if (error) return NextResponse.json({ error: "Couldn't send it. Try again in a moment." }, { status: 500 });
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return NextResponse.json({ error: "Couldn't send it. Try again in a moment." }, { status: 500 });
+
+  const to = process.env.REPORT_TO || 'hello@chitchatbot.stream';
+  const from = process.env.REPORT_FROM || 'ChitChatBot <reports@chitchatbot.stream>';
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      ...(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? { reply_to: contact } : {}),
+      subject: `Bug report: ${area}`,
+      text: `Where: ${area}\nContact: ${contact || '(none)'}\n\n${message}`
+    }),
+    signal: AbortSignal.timeout(10000)
+  }).catch(() => null);
+  if (!res || !res.ok) return NextResponse.json({ error: "Couldn't send it. Try again in a moment." }, { status: 500 });
 
   recent.push(now);
   hits.set(who, recent);

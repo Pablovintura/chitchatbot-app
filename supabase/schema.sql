@@ -50,13 +50,3 @@ alter table accounts enable row level security;
 alter table channels enable row level security;
 alter table settings enable row level security;
 alter table usage enable row level security;
-
--- Bug reports from the report page (see add-reports.sql).
-create table if not exists reports (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz not null default now(),
-  area text not null check (area in ('extension','bot','website')),
-  message text not null,
-  contact text
-);
-alter table reports enable row level security;
