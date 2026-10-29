@@ -16,10 +16,10 @@ export async function GET() {
     db().from('usage').select('account_id, characters').eq('month', month),
     db().from('accounts').select('id, plan')
   ]);
-  const sMap = new Map((st.data || []).map(r => [r.channel_id, r]));
-  const uMap = new Map((us.data || []).map(r => [r.account_id, Number(r.characters)]));
-  const pMap = new Map((ac.data || []).map(r => [r.id, r.plan]));
-  const rows = (ch.data || []).map(c => {
+  const sMap = new Map<string, any>((st.data || []).map((r: any): [string, any] => [r.channel_id, r]));
+  const uMap = new Map<string, number>((us.data || []).map((r: any): [string, number] => [r.account_id, Number(r.characters)]));
+  const pMap = new Map<string, string>((ac.data || []).map((r: any): [string, string] => [r.id, r.plan]));
+  const rows = (ch.data || []).map((c: any) => {
     const s: any = sMap.get(c.id);
     return {
       id: c.id, name: c.channel_name, joined: c.created_at, linked: Boolean(c.access_token_enc),
