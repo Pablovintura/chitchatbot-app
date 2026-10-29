@@ -109,6 +109,14 @@ export async function subscribeChat(channelId: string, broadcasterId: string) {
   return 'subscribed';
 }
 
+// Stops Kick from sending this channel's chat to us. Best effort: must run while the token is still saved.
+export async function unsubscribeChat(channelId: string, broadcasterId: string) {
+  const existing = await kickApi(channelId, `/public/v1/events/subscriptions?broadcaster_user_id=${broadcasterId}`);
+  const ids = (Array.isArray(existing.data) ? existing.data : []).map((s: any) => s.id).filter(Boolean);
+  if (!ids.length) return;
+  await kickApi(channelId, `/public/v1/events/subscriptions?${ids.map((id: string) => `id=${encodeURIComponent(id)}`).join('&')}`, { method: 'DELETE' });
+}
+
 // Kick only makes links clickable with https:// in front.
 const withHttps = (t: string) =>
   t.replace(/(^|[^\w./:@-])((?:www\.)?(?:chitchatbot\.stream|kick\.com)(?:\/[^\s]*)?)(?=\s|$)/gi, '$1https://$2');
