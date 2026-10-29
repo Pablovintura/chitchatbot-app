@@ -96,9 +96,12 @@ async function countUsage(accountId: string, chars: number) {
 export type ChatEvent = { messageId: string | null; broadcasterId: string; senderId: string; username: string; text: string; isMod?: boolean };
 
 // Runs after the webhook has already been answered. Never throws.
+// TEMP diagnostic: one line per message saying where it stopped. Never logs the message text. Remove once fixed.
+const why = (r: string) => console.log(`[cc-diag] ${r}`);
 export async function onChat(ev: ChatEvent) {
   try {
-    if (!configured()) return;
+    why('got chat event');
+    if (!configured()) return why('skip: not configured');
     if (ev.messageId) {
       if (seen.has(ev.messageId)) return;
       seen.add(ev.messageId);
@@ -109,7 +112,7 @@ export async function onChat(ev: ChatEvent) {
     if (process.env.KICK_BOT_USER_ID && ev.senderId === process.env.KICK_BOT_USER_ID) return;
 
     const ch = await channelFor(ev.broadcasterId);
-    if (!ch) return;
+    if (!ch) return why('skip: channel not linked');
     const channelId = ch.id;
 
     // !translate on / off: same switch as the dashboard. Broadcaster only, others are ignored quietly.
@@ -127,22 +130,22 @@ export async function onChat(ev: ChatEvent) {
     }
     if (msg.startsWith('!')) return; // other commands
     const s = await settingsFor(channelId);
-    if (!s.enabled) return;
-    if (s.skip.has(skipKey(ev.username))) return; // on the streamer's skip list
+    if (!s.enabled) return why('skip: translate off');
+    if (s.skip.has(skipKey(ev.username))) return why('skip: skip list'); // on the streamer's skip list
 
     const now = Date.now();
     const ukey = `${channelId}:${ev.senderId}`;
     const last = lastByUser.get(ukey);
-    if (last && now - last < s.cooldown * 1000) return;
+    if (last && now - last < s.cooldown * 1000) return why('skip: cooldown');
     const times = (recent.get(channelId) || []).filter(t => now - t < 60000);
-    if (times.length >= PER_MINUTE || (busy.get(channelId) || 0) >= 3) return;
+    if (times.length >= PER_MINUTE || (busy.get(channelId) || 0) >= 3) return why('skip: rate limit');
 
-    if (!underDailyMax()) return;
-    if ((await usedThisMonth(ch.account_id)) >= FREE_CAP) return; // free plan used up: quiet until next month
+    if (!underDailyMax()) return why('skip: daily max');
+    if ((await usedThisMonth(ch.account_id)) >= FREE_CAP) return why('skip: monthly cap'); // free plan used up: quiet until next month
 
     let source = detectLanguage(msg);
     if (!source && s.home !== 'en' && looksEnglish(msg)) source = 'en';
-    if (!source || source === s.home) return;
+    if (!source || source === s.home) return why(`skip: language ${source || 'unsure/english'}`);
     const body = cleanForDetect(msg).slice(0, 400);
 
     lastByUser.set(ukey, now);
@@ -154,15 +157,16 @@ export async function onChat(ev: ChatEvent) {
       dayCount++;
       const english = await translate(body, source, s.home);
       const plain = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-      if (!english || plain(english) === plain(body)) return;
+      if (!english || plain(english) === plain(body)) return why(`skip: cloudflare returned ${english ? 'the same text' : 'nothing'}`);
       // Mostly the same words in and out = it was English after all (he's famous -> He is famous).
       const wordsOf = (x: string) => x.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
       const outWords = new Set(wordsOf(english));
       const inWords = wordsOf(body);
-      if (inWords.length && inWords.filter(w => outWords.has(w)).length / inWords.length >= 0.6) return;
+      if (inWords.length && inWords.filter(w => outWords.has(w)).length / inWords.length >= 0.6) return why('skip: output mostly same words');
       let line = `${flagFor(source)} ${ev.username.replace(/^@+/, '')}: ${english}`;
       if (line.length > MAX_CHAT) line = line.slice(0, MAX_CHAT - 1) + '…';
       await sendChat(channelId, line);
+      why(`posted ${source}>${s.home}`);
       await countUsage(ch.account_id, body.length).catch(() => {});
     } finally {
       busy.set(channelId, Math.max(0, (busy.get(channelId) || 1) - 1));
