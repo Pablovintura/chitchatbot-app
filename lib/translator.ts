@@ -60,11 +60,25 @@ export async function onChat(ev: ChatEvent) {
       if (seen.size > 5000) seen.delete(seen.values().next().value as string);
     }
     const msg = ev.text.trim();
-    if (!msg || msg.startsWith('!') || msg.startsWith('🌐')) return; // commands, and our own lines
+    if (!msg || msg.startsWith('🌐')) return; // our own lines
 
     const { data: ch } = await db().from('channels').select('id, account_id').eq('platform', 'kick').eq('platform_user_id', ev.broadcasterId).maybeSingle();
     if (!ch) return;
     const channelId = ch.id as string;
+
+    // !translate on / off: same switch as the dashboard. Broadcaster only, others are ignored quietly.
+    const sw = msg.match(/^!translate\s+(on|off)\s*$/i);
+    if (sw) {
+      if (ev.senderId !== ev.broadcasterId) return;
+      const enabled = sw[1].toLowerCase() === 'on';
+      if (enabled && !configured()) { await sendChat(channelId, "Translate can't turn on yet: the translation key is missing."); return; }
+      const { error } = await db().from('settings').upsert({ channel_id: channelId, enabled, updated_at: new Date().toISOString() }, { onConflict: 'channel_id' });
+      if (error) { await sendChat(channelId, 'Could not change the translate setting.'); return; }
+      dropSettingsCache(channelId);
+      await sendChat(channelId, enabled ? 'Translate is now ON. Messages in other languages get an English line in chat.' : 'Translate is now OFF.');
+      return;
+    }
+    if (msg.startsWith('!')) return; // other commands
     const s = await settingsFor(channelId);
     if (!s.enabled) return;
 

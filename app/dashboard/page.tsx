@@ -15,8 +15,11 @@ export default function Dashboard() {
   };
   useEffect(() => {
     load();
+    const onFocus = () => load(); // a !translate command in chat changes the switch, so refresh when you come back
+    window.addEventListener('focus', onFocus);
     const k = new URLSearchParams(location.search).get('kick');
     if (k) setMsg({ connected: 'Kick connected. Chat is linked.', denied: 'Kick sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Kick.' }[k] || '');
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   const save = async (enabled: boolean) => {
