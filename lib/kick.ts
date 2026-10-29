@@ -79,6 +79,7 @@ export async function kickApi(channelId: string, path: string, init: RequestInit
   const token = await accessToken(channelId);
   const res = await fetch(`https://api.kick.com${path}`, {
     ...init,
+    cache: 'no-store', // never a saved copy: Kick data must be live
     signal: AbortSignal.timeout(TIMEOUT),
     headers: { Authorization: `Bearer ${token}`, ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers }
   });
@@ -91,7 +92,7 @@ export async function kickApi(channelId: string, path: string, init: RequestInit
 
 // Called right after sign-in, with the fresh token (nothing saved yet).
 export async function whoAmI(accessToken: string): Promise<{ id: string; name: string }> {
-  const res = await fetch('https://api.kick.com/public/v1/users', { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(TIMEOUT) });
+  const res = await fetch('https://api.kick.com/public/v1/users', { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT) });
   const body = await res.json().catch(() => null);
   const u = body?.data?.[0];
   if (!res.ok || !u?.user_id) throw new Error('Could not read the Kick profile.');
