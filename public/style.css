@@ -39,6 +39,7 @@ h3{font-size:16px;margin:0 0 4px}
 .site-kick{--p:83,252,24;--pink:#0a1a03}
 .site-twitch{--p:145,70,255;--pink:#fff}
 .site-youtube{--p:255,64,64;--pink:#fff}
+.site-rumble{--p:133,199,66;--pink:#0d1a00}
 .site-tiktok{--p:254,44,85;--pink:#fff}
 .pt{display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap}
 .pt button{border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);padding:2px 0;font:600 14px system-ui,sans-serif;cursor:pointer;border-radius:0}
@@ -101,7 +102,7 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 
 /* write-back composer, styled after each site */
 .cmp{display:none;margin:0 8px;color:#e8ecec;font-size:14px}
-.site-kick .cmp-kick,.site-twitch .cmp-twitch,.site-youtube .cmp-yt{display:block}
+.site-kick .cmp-kick,.site-twitch .cmp-twitch,.site-youtube .cmp-yt,.site-rumble .cmp-rumble{display:block}
 .cmp .ic{width:20px;height:20px;flex:none;display:block}
 .cmp .sp{flex:1}
 .cmp .typed{flex:1;min-width:0;overflow-wrap:anywhere}
@@ -135,7 +136,7 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 .rq .rqh{display:block;font-size:.85em;font-weight:700;letter-spacing:.02em;color:#8fa0a6}
 .rq .rqt{color:rgb(var(--p));margin-top:1px}
 .cmp .emo,.pv .emo{height:2em;vertical-align:-.6em}
-.site-youtube .rmsg{display:none}
+.site-youtube .rmsg,.site-rumble .rmsg{display:none}
 ol.log .when{gap:8px;align-items:flex-start}
 ol.log .when b{font-size:15px;font-weight:600;color:var(--muted)}
 .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:#1a2224;color:var(--fg)}
@@ -149,3 +150,9 @@ ol.log .when b{font-size:15px;font-weight:600;color:var(--muted)}
 .rf .cta{margin-top:8px}
 .rnote{color:var(--fg);font-size:14px}.rnote.bad{color:#ff9d9d}
 
+
+/* Rumble's chat box: round avatar, rounded field, paper-plane send */
+.rbox{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 8px;border-radius:22px;background:#1f2427;border:1px solid #34393d}
+.rbox .rav{width:26px;height:26px;border-radius:50%;background:#85c742;color:#0d1a00;font-weight:800;font-size:13px;display:grid;place-items:center;flex:none}
+.rbox>.ic{color:#9aa3a8}
+.rsend{width:32px;height:32px;border-radius:50%;background:#85c742;color:#0d1a00;display:grid;place-items:center;flex:none}.rsend .ic{width:17px;height:17px}
