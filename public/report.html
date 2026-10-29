@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report a bug - ChitChatBot</title>
+<meta name="description" content="Something broke? Tell us.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="style.css?v=20261029b">
+</head>
+<body class="home"><div class="bgl" aria-hidden="true"><svg class="bb" viewBox="0 0 24 24" style="left:-4%;top:10%;width:300px;transform:rotate(-8deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:70%;top:30%;width:360px;transform:rotate(10deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:5%;top:60%;width:280px;transform:rotate(6deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg><svg class="bb" viewBox="0 0 24 24" style="left:75%;top:80%;width:320px;transform:rotate(-6deg)" aria-hidden="true"><path d="M4 4h16a3 3 0 013 3v8a3 3 0 01-3 3h-7l-5 4v-4H4a3 3 0 01-3-3V7a3 3 0 013-3z" fill="none" stroke="#fff" stroke-width=".35"/></svg></div>
+<header class="site"><div class="wrap">
+  <a class="brand" href="index.html"><img src="icon.png" alt="">ChitChatBot</a>
+  <nav aria-label="Site"><a href="updates.html">Updates</a><a href="faq.html">FAQ</a><a href="https://buy.stripe.com/9B614pajedgR5i08WSfnO00" target="_blank" rel="noopener">♥ Support</a><a class="btn primary" href="/dashboard">Dashboard</a></nav>
+</div></header>
+<main class="wrap page">
+  <h1>Report a bug</h1>
+  <p class="small">Something broke? Tell us. We'll act surprised.</p>
+
+  <form class="rf" id="rf" novalidate>
+    <label for="area">What broke?</label>
+    <select id="area" required>
+      <option value="">Pick one</option>
+      <option value="extension">The extension (what you use to watch)</option>
+      <option value="bot">The bot (what you use to stream)</option>
+      <option value="website">This website</option>
+    </select>
+
+    <label for="message">What happened?</label>
+    <textarea id="message" rows="6" maxlength="2000" placeholder="What you did, what you expected, what happened instead. Which site you were on helps (Kick, Twitch, YouTube, TikTok)."></textarea>
+
+    <label for="contact">Your email <span class="small">(optional, only if you want a reply)</span></label>
+    <input id="contact" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com">
+
+    <input class="hp" id="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+    <p class="small">Please don't include passwords or private messages.</p>
+    <div class="cta"><button class="btn primary" type="submit" id="send">Send it</button><span id="note" class="rnote" role="status" aria-live="polite"></span></div>
+  </form>
+</main>
+<footer class="site"><div class="wrap">
+  <span>ChitChatBot is not affiliated with Kick, Twitch, YouTube or TikTok.</span>
+  <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></span>
+</div></footer>
+<script>
+(function () {
+  var f = document.getElementById('rf'), note = document.getElementById('note'), btn = document.getElementById('send');
+  function say(t, bad) { note.textContent = t; note.className = 'rnote' + (bad ? ' bad' : ''); }
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var area = document.getElementById('area').value, message = document.getElementById('message').value.trim();
+    if (!area) return say('Pick what broke first.', true);
+    if (message.length < 10) return say('Tell us a bit more. A sentence or two is plenty.', true);
+    btn.disabled = true; say('Sending…');
+    fetch('/api/report', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      area: area, message: message, contact: document.getElementById('contact').value, website: document.getElementById('website').value }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (x.ok) { f.reset(); say('Got it. Thank you. We\u2019ll act surprised.'); }
+        else { say(x.j.error || 'Couldn\u2019t send it. Try again in a moment.', true); btn.disabled = false; }
+      })
+      .catch(function () { say('Couldn\u2019t send it. Check your connection and try again.', true); btn.disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>

@@ -139,3 +139,13 @@ body.home header.site,body.home main,body.home footer.site{position:relative;z-i
 ol.log .when{gap:8px;align-items:flex-start}
 ol.log .when b{font-size:15px;font-weight:600;color:var(--muted)}
 .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:#1a2224;color:var(--fg)}
+.rf{display:grid;gap:8px;max-width:560px;margin-top:22px}
+.rf label{font-weight:600;margin-top:10px}
+.rf select,.rf textarea,.rf input{width:100%;font:inherit;font-size:16px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.rf textarea{resize:vertical;min-height:130px}
+.rf select:focus,.rf textarea:focus,.rf input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,166,207,.18)}
+.rf ::placeholder{color:#5f6d6f}
+.rf .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.rf .cta{margin-top:8px}
+.rnote{color:var(--fg);font-size:14px}.rnote.bad{color:#ff9d9d}
+
