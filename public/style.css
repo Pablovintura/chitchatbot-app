@@ -156,3 +156,13 @@ ol.log .when b{font-size:15px;font-weight:600;color:var(--muted)}
 .rbox .rav{width:26px;height:26px;border-radius:50%;background:#85c742;color:#0d1a00;font-weight:800;font-size:13px;display:grid;place-items:center;flex:none}
 .rbox>.ic{color:#9aa3a8}
 .rsend{width:32px;height:32px;border-radius:50%;background:#85c742;color:#0d1a00;display:grid;place-items:center;flex:none}.rsend .ic{width:17px;height:17px}
+
+.oneline{margin:26px 0 8px;font-size:clamp(20px,3.4vw,26px);line-height:1.5;font-weight:700;letter-spacing:-.01em;color:var(--fg);text-wrap:balance}
+.oneline b{font-weight:800;color:var(--accent);background:linear-gradient(transparent 70%,rgba(255,166,207,.22) 70%);padding:0 3px;border-radius:2px}
+.oneline i{font-style:normal;color:var(--accent);margin:0 8px}
+.oneline em{display:block;margin-top:6px;font:400 14px/1.4 system-ui,sans-serif;font-style:normal;color:var(--muted);letter-spacing:0}
+.botw .stt h2{color:var(--accent)}
+.botw{border:1px solid rgba(255,166,207,.45);background:linear-gradient(rgba(255,166,207,.06),transparent 240px)}
+.pill.botp{background:rgba(255,166,207,.14);color:#ffa6cf;border-color:rgba(255,166,207,.55)}
+.btn.setup{background:#ffa6cf;border-color:#ffa6cf;color:#2a1220;font-weight:800}
+.btn.setup:hover{filter:brightness(1.06)}
