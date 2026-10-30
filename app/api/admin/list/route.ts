@@ -22,7 +22,7 @@ export async function GET() {
   const rows = (ch.data || []).map((c: any) => {
     const s: any = sMap.get(c.id);
     return {
-      id: c.id, name: c.channel_name, platform: c.platform, joined: c.created_at, linked: Boolean(c.access_token_enc),
+      id: c.id, account: c.account_id, name: c.channel_name, platform: c.platform, joined: c.created_at, linked: Boolean(c.access_token_enc),
       on: Boolean(s?.enabled), language: LANGUAGES[s?.home_language || 'en'] || 'English',
       plan: String(pMap.get(c.account_id) || 'free'), used: uMap.get(c.account_id) || 0
     };
