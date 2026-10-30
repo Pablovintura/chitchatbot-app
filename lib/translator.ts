@@ -11,10 +11,11 @@ const MAX_CHAT = 500;
 const MODEL = '@cf/meta/m2m100-1.2b';
 export const FREE_CAP = 50000;                       // characters per channel per month on the free plan
 const DAILY_MAX = Number(process.env.DAILY_TRANSLATIONS) || 8000; // safety stop for the shared Cloudflare allowance (resets each UTC day)
-export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
+// Every language the bot can translate into (the same ones it can recognise in chat).
+export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 
 type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; skip: Set<string>; style: 'colon' | 'lang'; flag: boolean; orig: boolean; at: number };
-const LANG_NAMES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
+const LANG_NAMES = LANGUAGES;
 export const SKIP_MAX = 50;
 export const skipKey = (n: string) => n.toLowerCase().replace(/^@+/, '').replace(/[-_\s]/g, ''); // Kick slugs use - where names use _
 const cache = new Map<string, Settings>();           // channel id -> settings (30 s)

@@ -6,7 +6,7 @@ type Status = {
   enabled?: boolean; by?: string; at?: string; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[]; replyStyle?: 'colon' | 'lang'; replyFlag?: boolean; replyOriginal?: boolean;
 };
 
-const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
+const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 const PAUSES: [number, string][] = [[0, 'None'], [10, '10 sec'], [30, '30 sec'], [60, '1 min'], [120, '2 min'], [300, '5 min']];
 const ago = (iso?: string) => {
   const m = iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 60000) : NaN;
@@ -26,7 +26,24 @@ const EX: Record<string, { flag: string; user: string; orig: string; tr: string 
   pt: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'kkkk que legal foi a stream' },
   fr: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'mdr trop bien le stream' },
   ja: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: '笑 配信すごく良かった' },
-  ko: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'ㅋㅋㅋ 방송 진짜 좋았어' }
+  ko: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'ㅋㅋㅋ 방송 진짜 좋았어' },
+  de: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol wie gut der Stream war' },
+  it: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol che bello lo stream' },
+  nl: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol wat was de stream goed' },
+  pl: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol jak świetny był ten stream' },
+  tr: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol yayın ne kadar iyiydi' },
+  id: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'wkwk streamnya seru banget' },
+  ms: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol bestnya stream ni' },
+  vi: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'haha stream hay quá' },
+  tl: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'haha ang saya ng stream' },
+  sv: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol vad bra streamen var' },
+  ro: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol ce bună a fost transmisiunea' },
+  ru: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'лол как же хорош был стрим' },
+  uk: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'лол який чудовий був стрім' },
+  ar: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'ههه كم كان البث رائعًا' },
+  hi: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'लोल स्ट्रीम कितनी मज़ेदार थी' },
+  zh: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: '哈哈 这场直播太棒了' },
+  th: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'ฮ่าๆ สตรีมสนุกมาก' }
 };
 const NOTES: Record<string, string> = { connected: 'Kick connected.', denied: 'Kick sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Kick.' };
 const TNOTES: Record<string, string> = { connected: 'Twitch connected.', denied: 'Twitch sign-in was cancelled.', expired: 'That sign-in expired. Try again.', error: 'Could not finish connecting Twitch.', botok: 'The bot account is set. Now streamers can connect.' };
