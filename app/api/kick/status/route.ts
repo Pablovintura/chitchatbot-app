@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     channels: await cards(ch.account_id),
     admin: isAdmin(await currentChannel('kick')),
     enabled: Boolean(data?.enabled), by: data?.toggled_by ? String(data.toggled_by) : '', at: data?.toggled_at ? String(data.toggled_at) : '', cooldown: Number(data?.cooldown_seconds ?? 30),
-    language: String(data?.home_language || 'en'), mods: Boolean(data?.mods_can_toggle), skip: Array.isArray(data?.skip_list) ? data.skip_list : [],
+    language: String(data?.home_language || 'en'), mods: Boolean(data?.mods_can_toggle), replyStyle: data?.reply_style === 'lang' ? 'lang' : 'colon', replyFlag: data?.reply_flag !== false, replyOriginal: data?.reply_original === true, skip: Array.isArray(data?.skip_list) ? data.skip_list : [],
     used: await usedThisMonth(ch.account_id), cap: FREE_CAP
   });
 }

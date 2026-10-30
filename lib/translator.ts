@@ -13,7 +13,8 @@ export const FREE_CAP = 50000;                       // characters per channel p
 const DAILY_MAX = Number(process.env.DAILY_TRANSLATIONS) || 8000; // safety stop for the shared Cloudflare allowance (resets each UTC day)
 export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
 
-type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; skip: Set<string>; at: number };
+type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; skip: Set<string>; style: 'colon' | 'lang'; flag: boolean; orig: boolean; at: number };
+const LANG_NAMES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 export const SKIP_MAX = 50;
 export const skipKey = (n: string) => n.toLowerCase().replace(/^@+/, '').replace(/[-_\s]/g, ''); // Kick slugs use - where names use _
 const cache = new Map<string, Settings>();           // channel id -> settings (30 s)
@@ -58,7 +59,7 @@ async function settingsFor(channelId: string): Promise<Settings> {
   // Every column, so one missing column can't make the whole read fail (and switch the translator off).
   const { data } = await db().from('settings').select('*').eq('channel_id', channelId).maybeSingle();
   const home = String(data?.home_language || 'en');
-  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), skip: new Set<string>((Array.isArray(data?.skip_list) ? data.skip_list : []).map((x: string) => skipKey(String(x)))), at: Date.now() };
+  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), skip: new Set<string>((Array.isArray(data?.skip_list) ? data.skip_list : []).map((x: string) => skipKey(String(x)))), style: data?.reply_style === 'lang' ? 'lang' as const : 'colon' as const, flag: data?.reply_flag !== false, orig: data?.reply_original === true, at: Date.now() };
   cache.set(channelId, s);
   return s;
 }
@@ -188,7 +189,8 @@ export async function onChat(ev: ChatEvent) {
       const outWords = new Set(wordsOf(english));
       const inWords = wordsOf(body);
       if (inWords.length && inWords.filter(w => outWords.has(w)).length / inWords.length >= 0.6) return;
-      let line = `${flagFor(source)} ${ev.username.replace(/^@+/, '')}: ${english}`;
+      const who = ev.username.replace(/^@+/, '') + (s.style === 'lang' ? ` (${LANG_NAMES[source] || source})` : '');
+      let line = `${s.flag ? flagFor(source) + ' ' : ''}${who}: ${english}${s.orig ? ` [${body}]` : ''}`;
       if (line.length > MAX_CHAT) line = line.slice(0, MAX_CHAT - 1) + '…';
       await say(ch, line);
       await countUsage(ch.account_id, body.length).catch(() => {});

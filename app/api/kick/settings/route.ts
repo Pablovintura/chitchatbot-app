@@ -5,7 +5,7 @@ import { configured, dropSettingsCache, LANGUAGES, SKIP_MAX, skipKey } from '@/l
 
 export const dynamic = 'force-dynamic';
 
-// Saves only the fields that are sent: enabled, cooldown (0-600 s), language, mods, skipAdd / skipRemove (one username).
+// Saves only the fields that are sent: enabled, cooldown (0-600 s), language, mods, skipAdd / skipRemove (one username), replyStyle / replyFlag / replyOriginal.
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}));
   const ch = await currentChannel(typeof b.platform === 'string' ? b.platform : null);
@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
     row.home_language = String(b.language);
   }
   if ('mods' in b) row.mods_can_toggle = b.mods === true;
+  if ('replyStyle' in b) row.reply_style = b.replyStyle === 'lang' ? 'lang' : 'colon';
+  if ('replyFlag' in b) row.reply_flag = b.replyFlag !== false;
+  if ('replyOriginal' in b) row.reply_original = b.replyOriginal === true;
   if ('skipAdd' in b || 'skipRemove' in b) {
     const { data } = await db().from('settings').select('skip_list').eq('channel_id', ch.id).maybeSingle();
     let list: string[] = Array.isArray(data?.skip_list) ? data.skip_list : [];
@@ -41,11 +44,11 @@ export async function POST(req: NextRequest) {
     row.skip_list = list;
   }
   const { error } = await db().from('settings').upsert(row, { onConflict: 'channel_id' });
-  if (error) return NextResponse.json({ error: 'Could not save.' }, { status: 500 });
+  if (error) return NextResponse.json({ error: ('reply_style' in row || 'reply_flag' in row || 'reply_original' in row) ? 'Could not save. The reply options need one database update first.' : 'Could not save.' }, { status: 500 });
   dropSettingsCache(ch.id);
   // Language, pause, mods and the skip list are one setting for both channels. Only on/off is per channel.
   const shared: Record<string, unknown> = {};
-  for (const k of ['cooldown_seconds', 'home_language', 'mods_can_toggle', 'skip_list']) if (k in row) shared[k] = row[k];
+  for (const k of ['cooldown_seconds', 'home_language', 'mods_can_toggle', 'skip_list', 'reply_style', 'reply_flag', 'reply_original']) if (k in row) shared[k] = row[k];
   if (Object.keys(shared).length) {
     for (const o of (await accountChannels(ch.account_id)).filter(c => c.connected && c.id !== ch.id)) {
       await db().from('settings').upsert({ channel_id: o.id, updated_at: row.updated_at, ...shared }, { onConflict: 'channel_id' });

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Status = {
   connected: boolean; platform?: 'kick' | 'twitch'; channels?: { platform: 'kick' | 'twitch'; name: string; enabled?: boolean; by?: string; at?: string }[]; kickReady?: boolean; twitchReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
-  enabled?: boolean; by?: string; at?: string; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[];
+  enabled?: boolean; by?: string; at?: string; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[]; replyStyle?: 'colon' | 'lang'; replyFlag?: boolean; replyOriginal?: boolean;
 };
 
 const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', ja: 'Japanese', ko: 'Korean' };
@@ -19,6 +19,7 @@ const ago = (iso?: string) => {
 // "On. Switched on from the dashboard." / "Off. Paused from Kick chat, 2 min ago."
 const stateLine = (c: { enabled?: boolean; by?: string; at?: string }) =>
   c.enabled ? `On. ${c.by ? `Switched on from ${c.by}${ago(c.at)}.` : 'Translating chat.'}` : `Off. ${c.by ? `${c.by === 'the dashboard' ? 'Switched off' : 'Paused'} from ${c.by}${ago(c.at)}.` : 'Chat is on its own.'}`;
+const SRC_NAME: Record<string, string> = { '🇪🇸': 'Spanish', '🇺🇸': 'English' };
 const EX: Record<string, { flag: string; user: string; orig: string; tr: string }> = {
   en: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol how good the stream was' },
   es: { flag: '🇺🇸', user: 'jake_nyc', orig: 'that last play was so clean', tr: 'esa última jugada estuvo muy limpia' },
@@ -79,11 +80,13 @@ export default function Dashboard() {
   };
   const out = async (p?: string) => { await fetch('/api/kick/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: p || view }) }); setMsg(''); setView(''); load(); };
 
-  const P = s?.platform === 'twitch' ? 'Twitch' : 'Kick';
   const lang = LANGS[s?.language || 'en'] || 'English';
   const used = s?.used || 0, cap = s?.cap || 50000;
   const ex = EX[s?.language || 'en'] || EX.en;
   const anyOn = (s?.channels || []).some(c => c.enabled);
+  const replyFlag = s?.replyFlag !== false, replyStyle = s?.replyStyle === 'lang' ? 'lang' : 'colon', replyOrig = Boolean(s?.replyOriginal);
+  const who = ex.user + (replyStyle === 'lang' ? ` (${SRC_NAME[ex.flag] || 'Spanish'})` : '');
+  const exLine = `${replyFlag ? ex.flag + ' ' : ''}${who}: ${ex.tr}${replyOrig ? ` [${ex.orig}]` : ''}`;
   const pauses = s?.cooldown != null && !PAUSES.some(p => p[0] === s.cooldown) ? [...PAUSES, [s.cooldown, `${s.cooldown} sec`] as [number, string]] : PAUSES;
 
   return (
@@ -122,36 +125,18 @@ export default function Dashboard() {
                 const ready = p === 'kick' ? s.kickReady : s.twitchReady;
                 if (!mine) return ready ? <a key={p} className={`plat ${p === 'kick' ? 'k' : 't'} off`} href={`/api/${p}/login`}><i></i><span><b>{nm}</b><small>not linked</small></span><span className="go">Connect {nm}</span></a> : null;
                 return (
-                  <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${view === p ? ' sel' : ''}${mine.enabled ? '' : ' paused'}`} role="button" tabIndex={0} onClick={() => { if (view !== p) { setView(p); load(p); } }} onKeyDown={e => { if (e.key === 'Enter' && view !== p) { setView(p); load(p); } }}>
-                    <div className="ptop"><span><b>{nm}</b><small>{mine.name}</small></span>
-                      <span className="sw"><span>{mine.enabled ? 'On' : 'Off'}</span><button type="button" className="tog" role="switch" aria-checked={Boolean(mine.enabled)} aria-label={`${nm} translator`} onClick={e => { e.stopPropagation(); setOn(p, !mine.enabled); }} /></span></div>
+                  <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${mine.enabled ? '' : ' paused'}`}>
+                    <div className="ptop"><span><b>{nm}</b><small>{mine.name}<button type="button" className="x" onClick={() => out(p)}>Disconnect</button></small></span>
+                      <span className="sw"><span>{mine.enabled ? 'On' : 'Off'}</span><button type="button" className="tog" role="switch" aria-checked={Boolean(mine.enabled)} aria-label={`${nm} translator`} onClick={() => setOn(p, !mine.enabled)} /></span></div>
                     <div className="pst">{stateLine(mine)}</div>
-                    <button type="button" className="x" onClick={e => { e.stopPropagation(); out(p); }}>Disconnect</button>
                   </div>
                 );
               })}
             </div>
-            <p className={`on ${view}`}><i></i>Connected to {P}. Chat can't hide.</p>
             {msg && <p className="msg">{msg}</p>}
 
+            <div className="lab">Who gets translated</div>
             <div className="sheet">
-              <div className="item">
-                <div className="row">
-                  <div>
-                    <div className="t">Commands</div>
-                    <div className="d">Type them in either chat.{s.mods ? ' You and your mods can.' : ''}</div>
-                    <div className={`cmdcols${(s.channels || []).length > 1 ? '' : ' one'}`}>
-                      <div className="cc"><div className="ch">{(s.channels || []).length > 1 ? 'This chat' : 'In chat'}</div><div className="cl"><code>!translate off</code><span className="d">off</span></div><div className="cl"><code>!translate on</code><span className="d">on</span></div></div>
-                      {(s.channels || []).length > 1 && <div className="cc"><div className="ch">Both chats</div><div className="cl"><code>!translate off all</code><span className="d">off</span></div><div className="cl"><code>!translate on all</code><span className="d">on</span></div></div>}
-                    </div>
-                  </div>
-                </div>
-                <div className="row sub">
-                  <div><div className="t2">Mods can use the commands</div><div className="d">{s.mods ? 'You and your mods. They get the remote too.' : 'Just you. Mods can watch, not touch.'}</div></div>
-                  <button className="tog sm" role="switch" aria-checked={Boolean(s.mods)} aria-label="Let mods use the translate commands" onClick={() => save({ mods: !s.mods }, { mods: !s.mods })} />
-                </div>
-              </div>
-
               <div className="item"><div className="row">
                 <div><div className="t">Your language</div><div className="d">Anything not in {lang} gets translated for you. You're welcome.</div></div>
                 <select aria-label="Your language" value={s.language || 'en'} onChange={e => save({ language: e.target.value }, { language: e.target.value })}>
@@ -179,18 +164,54 @@ export default function Dashboard() {
                   {(s.skip || []).map(n => <span className="chip" key={n}>{n}<button type="button" aria-label={`Remove ${n}`} onClick={() => skip({ skipRemove: n }, `${n} is back on the menu.`)}>×</button></span>)}
                 </div>
               </div>
+            </div>
 
+            <div className="lab">Bot reply</div>
+            <div className="sheet">
+              <div className="item">
+                <div className="d">How the translation looks in chat. The box below shows it live.</div>
+                <div className="seg" role="group" aria-label="Reply style">
+                  <button type="button" aria-pressed={replyStyle === 'colon'} onClick={() => save({ replyStyle: 'colon' }, { replyStyle: 'colon' })}>name: hello</button>
+                  <button type="button" aria-pressed={replyStyle === 'lang'} onClick={() => save({ replyStyle: 'lang' }, { replyStyle: 'lang' })}>name (Spanish): hello</button>
+                </div>
+                <div className="row sub">
+                  <div><div className="t2">Show the flag</div><div className="d">A little flag so chat knows where it came from.</div></div>
+                  <button className="tog sm" role="switch" aria-checked={replyFlag} aria-label="Show the flag" onClick={() => save({ replyFlag: !replyFlag }, { replyFlag: !replyFlag })} />
+                </div>
+                <div className="row sub">
+                  <div><div className="t2">Show what they wrote too</div><div className="d">The original goes in brackets. Louder chat, more proof.</div></div>
+                  <button className="tog sm" role="switch" aria-checked={replyOrig} aria-label="Show the original message" onClick={() => save({ replyOriginal: !replyOrig }, { replyOriginal: !replyOrig })} />
+                </div>
+                <div className="ex"><div className="exh">What chat will see</div><div className="chatbox">
+                  <div className="m"><span className="u" style={{ color: '#b48cff' }}>{ex.user}:</span> {ex.orig}</div>
+                  {anyOn ? <div className="m"><span className="u b">ChitChatBot:</span> {exLine}</div> : <div className="m d">Translator is off, so chat is on its own. Good luck.</div>}
+                </div></div>
+              </div>
+            </div>
+
+            <div className="lab">Commands</div>
+            <div className="sheet">
+              <div className="item">
+                <div className="d">Type them in either chat.{s.mods ? ' You and your mods can.' : ''}</div>
+                <div className={`cmdcols${(s.channels || []).length > 1 ? '' : ' one'}`}>
+                  <div className="cc"><div className="ch">{(s.channels || []).length > 1 ? 'This chat' : 'In chat'}</div><div className="cl"><code>!translate off</code><span className="d">off</span></div><div className="cl"><code>!translate on</code><span className="d">on</span></div></div>
+                  {(s.channels || []).length > 1 && <div className="cc"><div className="ch">Both chats</div><div className="cl"><code>!translate off all</code><span className="d">off</span></div><div className="cl"><code>!translate on all</code><span className="d">on</span></div></div>}
+                </div>
+                <div className="row sub">
+                  <div><div className="t2">Mods can use the commands</div><div className="d">{s.mods ? 'You and your mods. They get the remote too.' : 'Just you. Mods can watch, not touch.'}</div></div>
+                  <button className="tog sm" role="switch" aria-checked={Boolean(s.mods)} aria-label="Let mods use the translate commands" onClick={() => save({ mods: !s.mods }, { mods: !s.mods })} />
+                </div>
+              </div>
+            </div>
+
+            <div className="lab">Plan</div>
+            <div className="sheet">
               <div className="item">
                 <div className="row"><div className="t" style={{ whiteSpace: 'nowrap' }}>Free plan</div><span className="d">{used.toLocaleString()} of {cap.toLocaleString()} characters. Plenty left.</span></div>
                 <div className="line"><i style={{ width: `${Math.min(100, (used / cap) * 100)}%` }} /></div>
                 {used >= cap && <div className="d" style={{ marginTop: 10 }}>You've used this month's free translations. The bot is quiet until next month.</div>}
               </div>
             </div>
-
-            <div className="ex"><div className="exh">What chat will see</div><div className="chatbox">
-              <div className="m"><span className="u" style={{ color: '#b48cff' }}>{ex.user}:</span> {ex.orig}</div>
-              {anyOn ? <div className="m"><span className="u b">ChitChatBot:</span> {ex.flag} {ex.user}: {ex.tr}</div> : <div className="m d">Translator is off, so chat is on its own. Good luck.</div>}
-            </div></div>
 
             {!s.translatorReady && <p className="note">The translation key isn't set on the server yet.</p>}
           </section>

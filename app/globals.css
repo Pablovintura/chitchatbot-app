@@ -132,3 +132,22 @@ select:hover{border-color:#3a484b}
 .exh{font-weight:600;margin-bottom:10px}
 .chatbox{border:1px solid rgba(255,166,207,.45);border-radius:8px;background:#0c1112;padding:12px 14px;font-size:14.5px}
 .chatbox .m{margin:4px 0;overflow-wrap:anywhere}.chatbox .u{font-weight:700}.chatbox .u.b{color:var(--accent)}
+
+/* dashboard: labeled sections, calmer channel cards, bot reply options */
+.lab{margin:26px 0 8px;padding-left:4px;font:800 11px system-ui;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.plat{border-width:1px;padding:12px 14px;gap:8px}
+.plat.k.lk{border-color:rgba(83,252,24,.4)}.plat.t.lk{border-color:rgba(145,70,255,.5)}
+.plat.lk.paused{border-color:rgba(255,255,255,.18)}
+.plat b{font-size:17px}.plat small{font-size:14px;opacity:.65}
+.plat .sw{font-size:13px;opacity:.8}.plat .pst{font-size:13.5px;opacity:.7}
+.plat .tog{width:42px;height:24px}.plat .tog::after{top:3px;left:3px;width:18px;height:18px}.plat .tog[aria-checked=true]::after{transform:translateX(18px)}
+.plat.k .tog[aria-checked=true]{background:#46c919}.plat.t .tog[aria-checked=true]{background:#7b44d8}
+.plat small .x{margin-left:8px;font-size:12.5px;font-weight:600;color:#e07a7a}
+.plat .go{font-size:14px}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.seg button{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font:600 13px system-ui;cursor:pointer}
+.seg button[aria-pressed=true]{color:var(--fg);border-color:var(--accent);background:rgba(255,166,207,.1)}
+.item>.ex{margin-top:16px;padding:16px 0 0;background:transparent;border:0;border-top:1px dashed var(--line);border-radius:0}
+.item>.ex .exh{font-size:16px;margin-bottom:12px}
+.chatbox{padding:14px 18px;font-size:17px;line-height:1.6;width:fit-content;max-width:100%;border-radius:10px}
+.chatbox .m+.m{margin-top:8px}
