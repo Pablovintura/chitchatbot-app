@@ -153,3 +153,20 @@ select:hover{border-color:#3a484b}
 .chatbox .m+.m{margin-top:8px}
 
 .seg+.search{margin-top:14px}
+
+/* One box for the account: Kick and Twitch are rows inside it */
+.acct{border:1px solid rgba(255,255,255,.14);border-radius:12px;margin:6px 0 16px;overflow:hidden}
+.arow{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.arow+.arow{border-top:1px solid rgba(255,255,255,.1)}
+.arow i{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.35;flex:none}
+.arow.k.lk i{background:#53fc18;opacity:1}.arow.t.lk i{background:#9146ff;opacity:1}
+.arow .ainfo{flex:1;min-width:0}
+.arow b{display:block;font-size:16px}
+.arow small{display:block;font-size:13.5px;opacity:.7}
+.arow .sw{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;opacity:.85}
+.arow .tog{width:42px;height:24px}.arow .tog::after{top:3px;left:3px;width:18px;height:18px}.arow .tog[aria-checked=true]::after{transform:translateX(18px)}
+.arow.k .tog[aria-checked=true]{background:#46c919}.arow.t .tog[aria-checked=true]{background:#7b44d8}
+.arow .x{background:none;border:0;padding:0;margin-left:8px;color:#e07a7a;font:600 12.5px system-ui;text-decoration:underline;cursor:pointer}
+.arow .go{font-size:14px;font-weight:800;text-decoration:none}
+.arow.off.k .go{color:#53fc18}.arow.off.t .go{color:#9146ff}
+.arow.off{opacity:.9}
