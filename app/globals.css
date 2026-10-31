@@ -153,3 +153,6 @@ select:hover{border-color:#3a484b}
 .chatbox .m+.m{margin-top:8px}
 
 .seg+.search{margin-top:14px}
+/* Kick and Twitch cards get the same filled background as the other sections; the colored border stays */
+.plat{background:var(--card)}
+.plat.off{background:var(--card)}

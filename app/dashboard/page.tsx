@@ -8,17 +8,6 @@ type Status = {
 
 const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 const PAUSES: [number, string][] = [[0, 'None'], [10, '10 sec'], [30, '30 sec'], [60, '1 min'], [120, '2 min'], [300, '5 min']];
-const ago = (iso?: string) => {
-  const m = iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 60000) : NaN;
-  if (!Number.isFinite(m)) return '';
-  if (m < 1) return ', just now';
-  if (m < 60) return `, ${m} min ago`;
-  if (m < 1440) return `, ${Math.floor(m / 60)} h ago`;
-  return `, ${Math.floor(m / 1440)} d ago`;
-};
-// "On. Switched on from the dashboard." / "Off. Paused from Kick chat, 2 min ago."
-const stateLine = (c: { enabled?: boolean; by?: string; at?: string }) =>
-  c.enabled ? `On. ${c.by ? `Switched on from ${c.by}${ago(c.at)}.` : 'Translating chat.'}` : `Off. ${c.by ? `${c.by === 'the dashboard' ? 'Switched off' : 'Paused'} from ${c.by}${ago(c.at)}.` : 'Chat is on its own.'}`;
 // Name of the example sender's language, written in the streamer's own language. Falls back to English.
 const srcLabel = (code: string, home: string) => {
   try { const n = new Intl.DisplayNames([home], { type: 'language' }).of(code); if (n && n.toLowerCase() !== code) return n; } catch { /* old browser */ }
@@ -150,7 +139,6 @@ export default function Dashboard() {
                   <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${mine.enabled ? '' : ' paused'}`}>
                     <div className="ptop"><span><b>{nm}</b><small>{mine.name}<button type="button" className="x" onClick={() => out(p)}>Disconnect</button></small></span>
                       <span className="sw"><span>{mine.enabled ? 'On' : 'Off'}</span><button type="button" className="tog" role="switch" aria-checked={Boolean(mine.enabled)} aria-label={`${nm} translator`} onClick={() => setOn(p, !mine.enabled)} /></span></div>
-                    <div className="pst">{stateLine(mine)}</div>
                   </div>
                 );
               })}
