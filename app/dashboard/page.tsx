@@ -19,7 +19,11 @@ const ago = (iso?: string) => {
 // "On. Switched on from the dashboard." / "Off. Paused from Kick chat, 2 min ago."
 const stateLine = (c: { enabled?: boolean; by?: string; at?: string }) =>
   c.enabled ? `On. ${c.by ? `Switched on from ${c.by}${ago(c.at)}.` : 'Translating chat.'}` : `Off. ${c.by ? `${c.by === 'the dashboard' ? 'Switched off' : 'Paused'} from ${c.by}${ago(c.at)}.` : 'Chat is on its own.'}`;
-const SRC_NAME: Record<string, string> = { '🇪🇸': 'Spanish', '🇺🇸': 'English' };
+// Name of the example sender's language, written in the streamer's own language. Falls back to English.
+const srcLabel = (code: string, home: string) => {
+  try { const n = new Intl.DisplayNames([home], { type: 'language' }).of(code); if (n && n.toLowerCase() !== code) return n; } catch { /* old browser */ }
+  return LANGS[code] || code;
+};
 const EX: Record<string, { flag: string; user: string; orig: string; tr: string }> = {
   en: { flag: '🇪🇸', user: 'pedro_mx', orig: 'jajaja que bueno estuvo el stream', tr: 'lol how good the stream was' },
   es: { flag: '🇺🇸', user: 'jake_nyc', orig: 'that last play was so clean', tr: 'esa última jugada estuvo muy limpia' },
@@ -102,7 +106,8 @@ export default function Dashboard() {
   const ex = EX[s?.language || 'en'] || EX.en;
   const anyOn = (s?.channels || []).some(c => c.enabled);
   const replyFlag = s?.replyFlag !== false, replyStyle = s?.replyStyle === 'lang' ? 'lang' : 'colon', replyOrig = Boolean(s?.replyOriginal);
-  const who = ex.user + (replyStyle === 'lang' ? ` (${SRC_NAME[ex.flag] || 'Spanish'})` : '');
+  const srcName = srcLabel(ex.flag === '🇺🇸' ? 'en' : 'es', s?.language || 'en');
+  const who = ex.user + (replyStyle === 'lang' ? ` (${srcName})` : '');
   const exLine = `${replyFlag ? ex.flag + ' ' : ''}${who}: ${ex.tr}${replyOrig ? ` [${ex.orig}]` : ''}`;
   const pauses = s?.cooldown != null && !PAUSES.some(p => p[0] === s.cooldown) ? [...PAUSES, [s.cooldown, `${s.cooldown} sec`] as [number, string]] : PAUSES;
 
@@ -189,7 +194,7 @@ export default function Dashboard() {
                 <div className="d">How the translation looks in chat. The box below shows it live.</div>
                 <div className="seg" role="group" aria-label="Reply style">
                   <button type="button" aria-pressed={replyStyle === 'colon'} onClick={() => save({ replyStyle: 'colon' }, { replyStyle: 'colon' })}>name: hello</button>
-                  <button type="button" aria-pressed={replyStyle === 'lang'} onClick={() => save({ replyStyle: 'lang' }, { replyStyle: 'lang' })}>name (Spanish): hello</button>
+                  <button type="button" aria-pressed={replyStyle === 'lang'} onClick={() => save({ replyStyle: 'lang' }, { replyStyle: 'lang' })}>name ({srcName}): hello</button>
                 </div>
                 <div className="row sub">
                   <div><div className="t2">Show the flag</div><div className="d">A little flag so chat knows where it came from.</div></div>

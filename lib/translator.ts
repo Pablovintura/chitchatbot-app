@@ -15,7 +15,15 @@ const DAILY_MAX = Number(process.env.DAILY_TRANSLATIONS) || 8000; // safety stop
 export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 
 type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; skip: Set<string>; style: 'colon' | 'lang'; flag: boolean; orig: boolean; at: number };
-const LANG_NAMES = LANGUAGES;
+// Name of the language a chat message was in, written in the streamer's own language ("Spanisch" for a German streamer). Falls back to English.
+const nameCache = new Map<string, Intl.DisplayNames | null>();
+function langLabel(code: string, home: string): string {
+  let dn = nameCache.get(home);
+  if (dn === undefined) { try { dn = new Intl.DisplayNames([home], { type: 'language' }); } catch { dn = null; } nameCache.set(home, dn); }
+  let out = '';
+  try { out = (dn && dn.of(code)) || ''; } catch { /* unknown code */ }
+  return out && out.toLowerCase() !== code.toLowerCase() ? out : LANGUAGES[code] || code;
+}
 export const SKIP_MAX = 50;
 export const skipKey = (n: string) => n.toLowerCase().replace(/^@+/, '').replace(/[-_\s]/g, ''); // Kick slugs use - where names use _
 const cache = new Map<string, Settings>();           // channel id -> settings (30 s)
@@ -190,7 +198,7 @@ export async function onChat(ev: ChatEvent) {
       const outWords = new Set(wordsOf(english));
       const inWords = wordsOf(body);
       if (inWords.length && inWords.filter(w => outWords.has(w)).length / inWords.length >= 0.6) return;
-      const who = ev.username.replace(/^@+/, '') + (s.style === 'lang' ? ` (${LANG_NAMES[source] || source})` : '');
+      const who = ev.username.replace(/^@+/, '') + (s.style === 'lang' ? ` (${langLabel(source, s.home)})` : '');
       let line = `${s.flag ? flagFor(source) + ' ' : ''}${who}: ${english}${s.orig ? ` [${body}]` : ''}`;
       if (line.length > MAX_CHAT) line = line.slice(0, MAX_CHAT - 1) + '…';
       await say(ch, line);
