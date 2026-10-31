@@ -140,22 +140,17 @@ export default function Dashboard() {
         {s?.connected && (
           <section>
             <h1>Hey, {s.channel}.</h1>
-            <div className="acct">
+            <div className="plats">
               {(['kick', 'twitch'] as const).map(p => {
                 const mine = (s.channels || []).find(c => c.platform === p);
-                const other = (s.channels || []).find(c => c.platform !== p);
                 const nm = p === 'kick' ? 'Kick' : 'Twitch';
                 const ready = p === 'kick' ? s.kickReady : s.twitchReady;
-                const cls = p === 'kick' ? 'k' : 't';
-                if (!mine) return ready ? (
-                  <div key={p} className={`arow ${cls} off`}><i></i><span className="ainfo"><b>{nm}</b><small>not linked</small></span><a className="go" href={`/api/${p}/login`}>Connect {nm}</a></div>
-                ) : null;
-                const same = other && other.name.toLowerCase() === mine.name.toLowerCase();
+                if (!mine) return ready ? <a key={p} className={`plat ${p === 'kick' ? 'k' : 't'} off`} href={`/api/${p}/login`}><i></i><span><b>{nm}</b><small>not linked</small></span><span className="go">Connect {nm}</span></a> : null;
                 return (
-                  <div key={p} className={`arow ${cls} lk${mine.enabled ? '' : ' paused'}`}>
-                    <i></i>
-                    <span className="ainfo"><b>{nm}</b><small>{same ? '' : `${mine.name} · `}{stateLine(mine)}<button type="button" className="x" onClick={() => out(p)}>Disconnect</button></small></span>
-                    <span className="sw"><span>{mine.enabled ? 'On' : 'Off'}</span><button type="button" className="tog" role="switch" aria-checked={Boolean(mine.enabled)} aria-label={`${nm} translator`} onClick={() => setOn(p, !mine.enabled)} /></span>
+                  <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${mine.enabled ? '' : ' paused'}`}>
+                    <div className="ptop"><span><b>{nm}</b><small>{mine.name}<button type="button" className="x" onClick={() => out(p)}>Disconnect</button></small></span>
+                      <span className="sw"><span>{mine.enabled ? 'On' : 'Off'}</span><button type="button" className="tog" role="switch" aria-checked={Boolean(mine.enabled)} aria-label={`${nm} translator`} onClick={() => setOn(p, !mine.enabled)} /></span></div>
+                    <div className="pst">{stateLine(mine)}</div>
                   </div>
                 );
               })}
