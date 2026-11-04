@@ -73,14 +73,31 @@ async function settingsFor(channelId: string): Promise<Settings> {
   return s;
 }
 
+// Lightweight cache for recent translations (source:target:text -> translatedText, max 1000 items)
+const transCache = new Map<string, string>();
+
+// Strip common third-party emotes before sending to AI
+const EMOTES_RE = /\b(?:KEKW|LUL|Pog|PogChamp|OMEGALUL|monka[SWs]|BibleThump|Kappa|AYAYA|peepoHappy|ResidentSleeper|Sadge|CatJAM|Feels(?:Strong|Bad|Good)Man|gachiHYPER)\b/g;
+const cleanEmotes = (t: string) => t.replace(EMOTES_RE, ' ').replace(/\s+/g, ' ').trim();
+
 // The free Cloudflare model can be slow to wake up, so wait longer and try a second time before giving up.
 async function translate(text: string, source: string, target: string): Promise<string> {
-  try { return await translateOnce(text, source, target); }
+  const cacheKey = `${source}:${target}:${text.toLowerCase().trim()}`;
+  const cached = transCache.get(cacheKey);
+  if (cached) return cached;
+
+  let out = '';
+  try { out = await translateOnce(text, source, target); }
   catch (e) {
     const msg = (e as Error).message || '';
     if (!/timeout|abort|Cloudflare 5\d\d/i.test(msg)) throw e;
-    return translateOnce(text, source, target);
+    out = await translateOnce(text, source, target);
   }
+  if (out) {
+    if (transCache.size > 1000) transCache.clear();
+    transCache.set(cacheKey, out);
+  }
+  return out;
 }
 
 async function translateOnce(text: string, source: string, target: string): Promise<string> {
@@ -88,7 +105,7 @@ async function translateOnce(text: string, source: string, target: string): Prom
     method: 'POST',
     headers: { Authorization: `Bearer ${tidy(process.env.CF_AI_TOKEN)}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, source_lang: source, target_lang: target }),
-    signal: AbortSignal.timeout(20000)
+    signal: AbortSignal.timeout(8000)
   });
   const body: any = await res.json().catch(() => null);
   const out = body?.result?.translated_text;
@@ -175,13 +192,16 @@ export async function onChat(ev: ChatEvent) {
     const times = (recent.get(channelId) || []).filter(t => now - t < 60000);
     if (times.length >= PER_MINUTE || (busy.get(channelId) || 0) >= 3) return;
 
-    if (!underDailyMax()) return;
-    if ((await usedThisMonth(ch.account_id)) >= FREE_CAP) return; // free plan used up: quiet until next month
-
+    // 1. Language check in local RAM first: exits immediately for English / untranslatable chat (saves Supabase reads)
     let source = detectLanguage(msg);
     if (!source && s.home !== 'en' && looksEnglish(msg)) source = 'en';
     if (!source || source === s.home) return;
-    const body = cleanForDetect(msg).slice(0, 400);
+
+    if (!underDailyMax()) return;
+    if ((await usedThisMonth(ch.account_id)) >= FREE_CAP) return; // free plan used up: quiet until next month
+
+    const body = cleanEmotes(cleanForDetect(msg)).slice(0, 400);
+    if (!body || body.length < 2) return;
 
     lastByUser.set(ukey, now);
     if (lastByUser.size > 5000) lastByUser.clear();
@@ -193,11 +213,16 @@ export async function onChat(ev: ChatEvent) {
       const english = await translate(body, source, s.home);
       const plain = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
       if (!english || plain(english) === plain(body)) return;
+
       // Mostly the same words in and out = it was English after all (he's famous -> He is famous).
+      // Filter out game titles, streamer username, and short tokens before checking overlap.
       const wordsOf = (x: string) => x.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
       const outWords = new Set(wordsOf(english));
       const inWords = wordsOf(body);
-      if (inWords.length && inWords.filter(w => outWords.has(w)).length / inWords.length >= 0.6) return;
+      const IGNORE_WORDS = new Set(['minecraft', 'fortnite', 'roblox', 'valorant', 'gta', 'stream', 'streamer', 'twitch', 'kick', 'pablo', ev.username.toLowerCase()]);
+      const meaningfulIn = inWords.filter(w => w.length > 2 && !IGNORE_WORDS.has(w));
+      if (meaningfulIn.length >= 2 && meaningfulIn.filter(w => outWords.has(w)).length / meaningfulIn.length >= 0.7) return;
+
       const who = ev.username.replace(/^@+/, '') + (s.style === 'lang' ? ` (${langLabel(source, s.home)})` : '');
       let line = `${s.flag ? flagFor(source) + ' ' : ''}${who}: ${english}${s.orig ? ` [${body}]` : ''}`;
       if (line.length > MAX_CHAT) line = line.slice(0, MAX_CHAT - 1) + '…';
