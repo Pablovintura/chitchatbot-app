@@ -1,4 +1,4 @@
-import { cleanForDetect, detectLanguage, flagFor, looksEnglish } from './detect';
+import { cleanForDetect, couldBeForeign, detectLanguage, flagFor, looksEnglish } from './detect';
 import { normalizeSlang, postProcessTranslation } from './slang';
 import { isContentSafe } from './safety';
 import { db } from './supabase';
@@ -38,6 +38,9 @@ function trim<K, V>(m: Map<K, V>, max: number) { while (m.size > max) { const k 
 const cache = new Map<string, Settings>();           // channel id -> settings (30 s)
 const lastByUser = new Map<string, number>();         // channel:user -> last translated (only kept when a line was posted)
 const recent = new Map<string, number[]>();           // channel -> times in the last minute
+// What language each viewer has been writing in lately (channel:user). Kept in memory only, for 30 minutes.
+const userLang = new Map<string, { lang: string; n: number; at: number }>();
+const USER_LANG_TTL = 30 * 60000;
 const busy = new Map<string, number>();
 const seen = new Set<string>();
 let dayKey = '', dayCount = 0;
@@ -431,14 +434,28 @@ export async function onChat(ev: ChatEvent) {
 
     const now = Date.now();
     const ukey = `${channelId}:${ev.senderId}`;
+
+    // 1. Language check in local RAM first: exits immediately for English / untranslatable chat / ignored languages.
+    // Done before the pause checks so the bot keeps learning a viewer's language even while that viewer is on pause.
+    let source = detectLanguage(msg);
+    if (source) {
+      const m = userLang.get(ukey);
+      if (m && m.lang === source && now - m.at < USER_LANG_TTL) { m.n = Math.min(m.n + 1, 5); m.at = now; }
+      else userLang.set(ukey, { lang: source, n: 1, at: now });
+      trim(userLang, 5000);
+    }
+
     const last = lastByUser.get(ukey);
     if (last && now - last < s.cooldown * 1000) return;
     const times = (recent.get(channelId) || []).filter(t => now - t < 60000);
     if (times.length >= PER_MINUTE || (busy.get(channelId) || 0) >= 3) return;
 
-    // 1. Language check in local RAM first: exits immediately for English / untranslatable chat / ignored languages
-    let source = detectLanguage(msg);
     if (!source && s.home !== 'en' && looksEnglish(msg)) source = 'en';
+    // Too short to tell on its own, but this viewer has clearly been writing one language: use that.
+    if (!source) {
+      const m = userLang.get(ukey);
+      if (m && m.n >= 2 && now - m.at < USER_LANG_TTL && couldBeForeign(msg)) source = m.lang;
+    }
     if (!source || source === s.home || s.ignored.has(source)) return;
 
     if (!underDailyMax()) return;
