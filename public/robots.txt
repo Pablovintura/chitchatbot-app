@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /get-extension.html
+Disallow: /report.html
+
+Sitemap: https://chitchatbot.stream/sitemap.xml
