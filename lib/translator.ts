@@ -1,5 +1,5 @@
 import { cleanForDetect, detectLanguage, flagFor, looksEnglish } from './detect';
-import { normalizeSlang } from './slang';
+import { normalizeSlang, postProcessTranslation } from './slang';
 import { isContentSafe } from './safety';
 import { db } from './supabase';
 import { sendChat as kickSend } from './kick';
@@ -10,9 +10,13 @@ import { sendChat as twitchSend } from './twitch';
 
 const PER_MINUTE = 6;
 const MAX_CHAT = 500;
-const MODEL = '@cf/meta/m2m100-1.2b';
+const MODEL_FAST = '@cf/meta/m2m100-1.2b';
+const MODEL_SMART = '@cf/meta/llama-3.1-8b-instruct';
 export const FREE_CAP = 50000;                       // characters per channel per month on the free plan
 const DAILY_MAX = Number(process.env.DAILY_TRANSLATIONS) || 8000; // safety stop for the shared Cloudflare allowance (resets each UTC day)
+const DAILY_SMART_MAX = Number(process.env.DAILY_SMART_MAX) || 1500; // global ceiling for Smart Llama 3.1
+const ACCOUNT_SMART_DAILY_MAX = 100; // per-account daily smart limit before falling back to fast model
+const CHANNEL_SMART_BURST = 2;       // max smart calls in 60s per channel to prevent lag spikes
 // Every language the bot can translate into (the same ones it can recognise in chat).
 export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 
@@ -82,28 +86,54 @@ const transCache = new Map<string, string>();
 const EMOTES_RE = /\b(?:KEKW|LUL|Pog|PogChamp|OMEGALUL|monka[SWs]|BibleThump|Kappa|AYAYA|peepoHappy|ResidentSleeper|Sadge|CatJAM|Feels(?:Strong|Bad|Good)Man|gachiHYPER)\b/g;
 const cleanEmotes = (t: string) => t.replace(EMOTES_RE, ' ').replace(/\s+/g, ' ').trim();
 
-// The free Cloudflare model can be slow to wake up, so wait longer and try a second time before giving up.
-async function translate(text: string, source: string, target: string): Promise<string> {
-  const cacheKey = `${source}:${target}:${text.toLowerCase().trim()}`;
-  const cached = transCache.get(cacheKey);
-  if (cached) return cached;
+let smartDayKey = '', smartDayCount = 0;
+const underDailySmartMax = () => {
+  const d = new Date().toISOString().slice(0, 10);
+  if (d !== smartDayKey) { smartDayKey = d; smartDayCount = 0; }
+  return smartDayCount < DAILY_SMART_MAX;
+};
 
-  let out = '';
-  try { out = await translateOnce(text, source, target); }
-  catch (e) {
-    const msg = (e as Error).message || '';
-    if (!/timeout|abort|Cloudflare 5\d\d/i.test(msg)) throw e;
-    out = await translateOnce(text, source, target);
-  }
-  if (out) {
-    if (transCache.size > 1000) transCache.clear();
-    transCache.set(cacheKey, out);
-  }
-  return out;
+// Map of accountId -> { day: string, count: number }
+const smartByAccount = new Map<string, { day: string; count: number }>();
+function canAccountUseSmart(accountId?: string): boolean {
+  if (!accountId) return true;
+  const d = new Date().toISOString().slice(0, 10);
+  const rec = smartByAccount.get(accountId);
+  if (!rec || rec.day !== d) return true;
+  return rec.count < ACCOUNT_SMART_DAILY_MAX;
 }
 
-async function translateOnce(text: string, source: string, target: string): Promise<string> {
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(tidy(process.env.CF_ACCOUNT_ID))}/ai/run/${MODEL}`, {
+// Map of channelId -> timestamps in the last 60s
+const smartByChannel = new Map<string, number[]>();
+function canChannelUseSmart(channelId?: string): boolean {
+  if (!channelId) return true;
+  const now = Date.now();
+  const times = (smartByChannel.get(channelId) || []).filter(t => now - t < 60000);
+  return times.length < CHANNEL_SMART_BURST;
+}
+
+function recordSmartUsage(channelId?: string, accountId?: string) {
+  smartDayCount++;
+  const d = new Date().toISOString().slice(0, 10);
+  if (accountId) {
+    const rec = smartByAccount.get(accountId);
+    if (!rec || rec.day !== d) {
+      smartByAccount.set(accountId, { day: d, count: 1 });
+    } else {
+      rec.count++;
+    }
+    if (smartByAccount.size > 5000) smartByAccount.clear();
+  }
+  if (channelId) {
+    const now = Date.now();
+    const times = (smartByChannel.get(channelId) || []).filter(t => now - t < 60000);
+    times.push(now);
+    smartByChannel.set(channelId, times);
+  }
+}
+
+async function translateFastOnce(text: string, source: string, target: string): Promise<string> {
+  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(tidy(process.env.CF_ACCOUNT_ID))}/ai/run/${MODEL_FAST}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${tidy(process.env.CF_AI_TOKEN)}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, source_lang: source, target_lang: target }),
@@ -113,9 +143,78 @@ async function translateOnce(text: string, source: string, target: string): Prom
   const out = body?.result?.translated_text;
   if (!res.ok || typeof out !== 'string') {
     const why = (body?.errors || []).map((e: any) => `${e.code || ''} ${e.message || ''}`.trim()).filter(Boolean).join('; ');
-    throw new Error(`Cloudflare ${res.status}${why ? ` (${why.slice(0, 200)})` : ''}`);
+    throw new Error(`Cloudflare Fast ${res.status}${why ? ` (${why.slice(0, 200)})` : ''}`);
   }
   return out.trim();
+}
+
+async function translateFast(text: string, source: string, target: string): Promise<string> {
+  try { return await translateFastOnce(text, source, target); }
+  catch (e) {
+    const msg = (e as Error).message || '';
+    if (!/timeout|abort|Cloudflare 5\d\d/i.test(msg)) throw e;
+    return await translateFastOnce(text, source, target);
+  }
+}
+
+async function translateSmart(text: string, source: string, target: string): Promise<string> {
+  const sourceName = LANGUAGES[source] || source;
+  const targetName = LANGUAGES[target] || target;
+  const systemPrompt = `You are a live stream chat translator. Translate from ${sourceName} into natural, casual ${targetName} streamer chat. Keep gamer slang, humor, and tone natural. Return ONLY the translated sentence, with no quotes, notes, or explanations.`;
+
+  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(tidy(process.env.CF_ACCOUNT_ID))}/ai/run/${MODEL_SMART}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${tidy(process.env.CF_AI_TOKEN)}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: text }
+      ],
+      max_tokens: 120
+    }),
+    signal: AbortSignal.timeout(3500) // Fast 3.5s timeout so stream chat is never delayed
+  });
+  const body: any = await res.json().catch(() => null);
+  const out = body?.result?.response;
+  if (!res.ok || typeof out !== 'string') {
+    throw new Error(`Cloudflare Smart ${res.status}`);
+  }
+  return out.trim();
+}
+
+// Hybrid translation: Fast M2M-100 for short chat, Smart Llama 3.1 for long/nuanced chat with automatic fallback
+async function translate(text: string, source: string, target: string, channelId?: string, accountId?: string): Promise<string> {
+  const cacheKey = `${source}:${target}:${text.toLowerCase().trim()}`;
+  const cached = transCache.get(cacheKey);
+  if (cached) return cached;
+
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  let out = '';
+
+  // Smart model is used for longer sentences (>= 7 words) if limits permit
+  const eligibleForSmart = words.length >= 7 && underDailySmartMax() && canAccountUseSmart(accountId) && canChannelUseSmart(channelId);
+
+  if (eligibleForSmart) {
+    try {
+      out = await translateSmart(text, source, target);
+      if (out) recordSmartUsage(channelId, accountId);
+    } catch {
+      // Seamless fallback to fast model
+      out = '';
+    }
+  }
+
+  // Fast model handles all short chat, plus fallbacks from smart model
+  if (!out) {
+    out = await translateFast(text, source, target);
+  }
+
+  if (out) {
+    out = postProcessTranslation(out, text);
+    if (transCache.size > 1000) transCache.clear();
+    transCache.set(cacheKey, out);
+  }
+  return out;
 }
 
 // Public function for dashboard live tester
@@ -276,7 +375,7 @@ export async function onChat(ev: ChatEvent) {
     busy.set(channelId, (busy.get(channelId) || 0) + 1);
     try {
       dayCount++;
-      const english = await translate(body, source, s.home);
+      const english = await translate(body, source, s.home, channelId, ch.account_id);
       const plain = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
       if (!english || plain(english) === plain(body) || isSameSentence(body, english) || !isContentSafe(english)) return;
 
