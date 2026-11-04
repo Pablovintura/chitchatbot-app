@@ -47,6 +47,10 @@ export default function Dashboard() {
   const [msg, setMsg] = useState('');
   const [name, setName] = useState('');
   const [skipMsg, setSkipMsg] = useState('');
+  const [testText, setTestText] = useState('');
+  const [testResult, setTestResult] = useState<{ text?: string; detected?: string; flag?: string; langName?: string; translated?: string; line?: string; sentToChat?: boolean } | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testError, setTestError] = useState('');
   const [view, setView] = useState<'kick' | 'twitch' | ''>('');
   viewRef.current = view;
 
@@ -89,6 +93,27 @@ export default function Dashboard() {
     if ('skipAdd' in body) setName('');
   };
   const out = async (p?: string) => { await fetch('/api/kick/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: p || view }) }); setMsg(''); setView(''); load(); };
+
+  const runTest = async (sendToChat = false, sampleText?: string) => {
+    const textToRun = (sampleText || testText).trim();
+    if (!textToRun) return;
+    setTestLoading(true);
+    setTestError('');
+    try {
+      const res = await fetch('/api/kick/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToRun, platform: view, sendToChat })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Test failed.');
+      setTestResult(data);
+    } catch (e) {
+      setTestError((e as Error).message);
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const lang = LANGS[s?.language || 'en'] || 'English';
   const used = s?.used || 0, cap = s?.cap || 50000;
@@ -196,6 +221,72 @@ export default function Dashboard() {
                   <div className="m"><span className="u" style={{ color: '#b48cff' }}>{ex.user}:</span> {ex.orig}</div>
                   {anyOn ? <div className="m"><span className="u b">ChitChatBot:</span> {exLine}</div> : <div className="m d">Translator is off, so chat is on its own. Good luck.</div>}
                 </div></div>
+              </div>
+            </div>
+
+            <div className="lab">Live translation tester</div>
+            <div className="sheet">
+              <div className="item">
+                <div className="d">Test how the bot detects and translates any foreign sentence in real time.</div>
+                <form className="skipadd" onSubmit={e => { e.preventDefault(); runTest(false); }}>
+                  <input
+                    value={testText}
+                    onChange={e => setTestText(e.target.value)}
+                    placeholder="Type anything (e.g. hola a todos, selam nasilsin, こんにちは)"
+                    aria-label="Test message"
+                    maxLength={300}
+                  />
+                  <button className="btn primary" type="submit" disabled={testLoading || !testText.trim()}>
+                    {testLoading ? 'Translating…' : 'Translate'}
+                  </button>
+                  <button
+                    className="btn pink"
+                    type="button"
+                    disabled={testLoading || !testText.trim()}
+                    onClick={() => runTest(true)}
+                    title="Send this translated test line to your live chat"
+                  >
+                    Send to Chat
+                  </button>
+                </form>
+
+                <div className="chips" style={{ marginTop: 10 }}>
+                  <span className="d" style={{ marginRight: 6 }}>Try sample:</span>
+                  {[
+                    ['🇪🇸 Spanish', 'hola a todos buen stream bro'],
+                    ['🇹🇷 Turkish', 'selam nasilsin abi yayin cok guzel'],
+                    ['🇯🇵 Japanese', 'みなさんこんばんは配信お疲れ様です'],
+                    ['🇩🇪 German', 'hallo wie gehts dir heute sehr gut gespielt'],
+                    ['🇫🇷 French', 'bonjour tout le monde super partie bravo mec'],
+                    ['🇷🇺 Russian', 'всем привет отличная игра спс за стрим'],
+                    ['🇧🇷 Portuguese', 'salve galera muito boa jogada mano vlw']
+                  ].map(([label, sample]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className="chip"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => { setTestText(sample); runTest(false, sample); }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {testError && <p className="msg" style={{ marginTop: 12, color: '#ff6b6b' }}>{testError}</p>}
+
+                {testResult && (
+                  <div className="ex" style={{ marginTop: 14 }}>
+                    <div className="exh">
+                      Test Output: {testResult.flag} {testResult.langName} &rarr; {lang}
+                      {testResult.sentToChat && <span style={{ marginLeft: 8, color: '#4ade80' }}>✓ Sent to live chat</span>}
+                    </div>
+                    <div className="chatbox">
+                      <div className="m"><span className="u" style={{ color: '#b48cff' }}>Viewer:</span> {testResult.text}</div>
+                      <div className="m"><span className="u b">ChitChatBot:</span> {testResult.line}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

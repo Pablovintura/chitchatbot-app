@@ -1,4 +1,5 @@
 import { cleanForDetect, detectLanguage, flagFor, looksEnglish } from './detect';
+import { normalizeSlang } from './slang';
 import { db } from './supabase';
 import { sendChat as kickSend } from './kick';
 import { sendChat as twitchSend } from './twitch';
@@ -116,6 +117,12 @@ async function translateOnce(text: string, source: string, target: string): Prom
   return out.trim();
 }
 
+// Public function for dashboard live tester
+export async function translateText(text: string, source: string, target: string): Promise<string> {
+  const body = normalizeSlang(cleanEmotes(cleanForDetect(text)), source);
+  return translate(body, source, target);
+}
+
 const monthStart = () => new Date().toISOString().slice(0, 8) + '01';
 
 // Characters used this month. Remembered for 30 s and bumped locally so a busy chat does not hit the database every line.
@@ -130,12 +137,35 @@ export async function usedThisMonth(accountId: string): Promise<number> {
   return chars;
 }
 
+// Batched database write: updates in-memory immediately and flushes to Supabase every 30s
+const pendingFlush = new Map<string, { month: string; chars: number }>();
+let flushTimeout: NodeJS.Timeout | null = null;
+
+async function flushUsage() {
+  flushTimeout = null;
+  if (!pendingFlush.size) return;
+  const entries = Array.from(pendingFlush.entries());
+  pendingFlush.clear();
+  for (const [accountId, { month, chars }] of entries) {
+    try {
+      await db().from('usage').upsert({ account_id: accountId, month, characters: chars }, { onConflict: 'account_id,month' });
+    } catch (e) {
+      console.error('Failed to flush usage for', accountId, (e as Error).message);
+    }
+  }
+}
+
 async function countUsage(accountId: string, chars: number) {
   const month = monthStart();
   const before = await usedThisMonth(accountId);
   const chars2 = before + chars;
   usageCache.set(accountId, { month, chars: chars2, at: Date.now() });
-  await db().from('usage').upsert({ account_id: accountId, month, characters: chars2 }, { onConflict: 'account_id,month' });
+  pendingFlush.set(accountId, { month, chars: chars2 });
+
+  if (!flushTimeout) {
+    flushTimeout = setTimeout(flushUsage, 30000);
+    flushTimeout.unref?.();
+  }
 }
 
 export type ChatEvent = { platform?: 'kick' | 'twitch'; messageId: string | null; broadcasterId: string; senderId: string; username: string; text: string; isMod?: boolean };
@@ -200,8 +230,9 @@ export async function onChat(ev: ChatEvent) {
     if (!underDailyMax()) return;
     if ((await usedThisMonth(ch.account_id)) >= FREE_CAP) return; // free plan used up: quiet until next month
 
-    const body = cleanEmotes(cleanForDetect(msg)).slice(0, 400);
-    if (!body || body.length < 2) return;
+    const rawBody = cleanEmotes(cleanForDetect(msg)).slice(0, 400);
+    if (!rawBody || rawBody.length < 2) return;
+    const body = normalizeSlang(rawBody, source);
 
     lastByUser.set(ukey, now);
     if (lastByUser.size > 5000) lastByUser.clear();
