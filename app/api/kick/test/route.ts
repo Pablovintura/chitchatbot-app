@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
   if (typeof b.text === 'string' && b.text.trim()) {
     try {
       const text = b.text.trim();
-      const detected = detectLanguage(text) || 'es';
+      const detected = detectLanguage(text);
+      if (!detected) return NextResponse.json({ error: "Couldn't tell what language that is. Try a longer sentence, the bot isn't psychic." }, { status: 422 });
       const flag = flagFor(detected);
 
       // Read streamer's home language

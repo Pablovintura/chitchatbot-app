@@ -52,7 +52,26 @@ export default function Dashboard() {
   const [testLoading, setTestLoading] = useState(false);
   const [testError, setTestError] = useState('');
   const [view, setView] = useState<'kick' | 'twitch' | ''>('');
+  const [toast, setToast] = useState<{ t: string; err: boolean } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [askDisc, setAskDisc] = useState<'' | 'kick' | 'twitch'>('');
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [helloing, setHelloing] = useState(false);
+  const [copied, setCopied] = useState('');
+  const [ignSel, setIgnSel] = useState('');
   viewRef.current = view;
+
+  // Small pop-up near the bottom so a save (or a failed save) is visible wherever you are on the page.
+  const flash = (t: string, err = false) => {
+    setToast({ t, err });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), err ? 3200 : 1800);
+  };
+  const copy = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); } catch { /* old browser, just show the label */ }
+    setCopied(text);
+    setTimeout(() => setCopied(c => (c === text ? '' : c)), 1200);
+  };
 
   const load = useCallback(async (p?: string) => {
     const r = await fetch(`/api/kick/status${p ? `?p=${p}` : ''}`).then(r => r.json());
@@ -75,14 +94,14 @@ export default function Dashboard() {
   const save = async (patch: Partial<Status>, body: Record<string, unknown>) => {
     setS(prev => (prev ? { ...prev, ...patch } : prev));
     const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, platform: view }) });
-    if (!r.ok) { setMsg((await r.json().catch(() => ({}))).error || 'Could not save.'); load(view); } else setMsg('');
+    if (!r.ok) { const er = (await r.json().catch(() => ({}))).error || 'Could not save.'; setMsg(er); flash(er, true); load(view); } else { setMsg(''); flash('Saved'); }
   };
   // The on/off switch of one channel (its card). Optimistic, like save().
   const setOn = async (p: 'kick' | 'twitch', on: boolean) => {
     const now = new Date().toISOString();
     setS(prev => (prev ? { ...prev, ...(prev.platform === p ? { enabled: on } : {}), channels: (prev.channels || []).map(c => (c.platform === p ? { ...c, enabled: on, by: 'the dashboard', at: now } : c)) } : prev));
     const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: on, platform: p }) });
-    if (!r.ok) { setMsg((await r.json().catch(() => ({}))).error || 'Could not save.'); load(view); } else setMsg('');
+    if (!r.ok) { const er = (await r.json().catch(() => ({}))).error || 'Could not save.'; setMsg(er); flash(er, true); load(view); } else { setMsg(''); flash('Saved'); }
   };
   const skip = async (body: { skipAdd: string } | { skipRemove: string }, ok: string) => {
     const r = await fetch('/api/kick/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, platform: view }) });
@@ -90,6 +109,7 @@ export default function Dashboard() {
     if (!r.ok) { setSkipMsg(j.error || 'Could not save.'); return; }
     setS(prev => (prev ? { ...prev, skip: j.skip || [] } : prev));
     setSkipMsg(ok);
+    flash('Saved');
     if ('skipAdd' in body) setName('');
   };
   const toggleIgnored = (code: string) => {
@@ -99,13 +119,15 @@ export default function Dashboard() {
     const list = Array.from(current);
     save({ ignoredLanguages: list }, { ignoredLanguages: list });
   };
-  const out = async (p?: string) => { await fetch('/api/kick/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: p || view }) }); setMsg(''); setView(''); load(); };
+  const out = async (p?: string) => { await fetch('/api/kick/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: p || view }) }); setMsg(''); setView(''); setAskDisc(''); load(); };
 
   const runTest = async (sendToChat = false, sampleText?: string) => {
     const textToRun = (sampleText || testText).trim();
     if (!textToRun) return;
     setTestLoading(true);
     setTestError('');
+    setConfirmSend(false);
+    if (!sendToChat) setTestResult(null);
     try {
       const res = await fetch('/api/kick/test', {
         method: 'POST',
@@ -115,11 +137,21 @@ export default function Dashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Test failed.');
       setTestResult(data);
+      if (sendToChat) flash('Posted to your chat');
     } catch (e) {
       setTestError((e as Error).message);
     } finally {
       setTestLoading(false);
     }
+  };
+
+  const sayHello = async () => {
+    setHelloing(true);
+    try {
+      const r = await fetch('/api/kick/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: view }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) flash(j.error || 'Could not reach your chat.', true); else flash('Hello sent to your chat');
+    } finally { setHelloing(false); }
   };
 
   const lang = LANGS[s?.language || 'en'] || 'English';
@@ -131,6 +163,22 @@ export default function Dashboard() {
   const who = ex.user + (replyStyle === 'lang' ? ` (${srcName})` : '');
   const exLine = `${replyFlag ? ex.flag + ' ' : ''}${who}: ${ex.tr}${replyOrig ? ` [${ex.orig}]` : ''}`;
   const pauses = s?.cooldown != null && !PAUSES.some(p => p[0] === s.cooldown) ? [...PAUSES, [s.cooldown, `${s.cooldown} sec`] as [number, string]] : PAUSES;
+
+  const usedPct = Math.min(100, (used / cap) * 100);
+  const usageState = usedPct >= 95 ? ' out' : usedPct >= 80 ? ' low' : '';
+  const usageNote = used >= cap ? "That's this month's free translations. The bot is quiet until next month." : usedPct >= 95 ? 'Almost out. At the limit the bot goes quiet until next month.' : usedPct >= 80 ? 'Getting low. Chat has been chatty.' : 'Free plan. Plenty left.';
+  const both = (s?.channels || []).length > 1;
+  const ignored = s?.ignoredLanguages || [];
+  const pauseLabel = (pauses.find(p => p[0] === (s?.cooldown ?? 30)) || [0, 'None'])[1];
+  const sinceLine = (c: { enabled?: boolean; by?: string; at?: string }) => {
+    let out = c.enabled ? 'On' : 'Off';
+    const d = c.at ? new Date(c.at) : null;
+    if (d && !isNaN(d.getTime())) {
+      const today = d.toDateString() === new Date().toDateString();
+      out += ' since ' + (today ? '' : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ') + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return c.by ? `${out} · from ${c.by}` : out;
+  };
 
   return (
     <>
@@ -169,15 +217,28 @@ export default function Dashboard() {
                 if (!mine) return ready ? <a key={p} className={`plat ${p === 'kick' ? 'k' : 't'} off`} href={`/api/${p}/login`}><i></i><span><b>{nm}</b><small>not linked</small></span><span className="go">Connect {nm}</span></a> : null;
                 return (
                   <div key={p} className={`plat ${p === 'kick' ? 'k' : 't'} lk${mine.enabled ? '' : ' paused'}`}>
-                    <div className="ptop"><span><b>{nm}</b><small>{mine.name}<button type="button" className="x" onClick={() => out(p)}>Disconnect</button></small></span>
+                    <div className="ptop"><span><b>{nm}</b><small>{mine.name}</small></span>
                       <span className="sw"><span>{mine.enabled ? 'On' : 'Off'}</span><button type="button" className="tog" role="switch" aria-checked={Boolean(mine.enabled)} aria-label={`${nm} translator`} onClick={() => setOn(p, !mine.enabled)} /></span></div>
+                    <div className="wh"><i></i><span>{sinceLine(mine)}</span></div>
+                    {askDisc === p
+                      ? <div className="confirm"><span>Disconnect {nm}? You'll have to sign in again to bring the bot back.</span><button type="button" className="btn danger small" onClick={() => out(p)}>Disconnect</button><button type="button" className="btn ghost small" onClick={() => setAskDisc('')}>Keep it</button></div>
+                      : <button type="button" className="disc" onClick={() => setAskDisc(p)}>Disconnect</button>}
                   </div>
                 );
               })}
             </div>
             {msg && <p className="msg">{msg}</p>}
 
+            <div className={`sheet usage${usageState}`}>
+              <div className="item">
+                <div className="big"><div className="num">{used.toLocaleString()} <small>of {cap.toLocaleString()} characters this month</small></div><span className="d">{Math.round(usedPct)}%</span></div>
+                <div className="line"><i style={{ width: `${usedPct}%` }} /></div>
+                <div className="unote">{usageNote}</div>
+              </div>
+            </div>
+
             <div className="lab">Who gets translated</div>
+            {both && <div className="labnote">These settings apply to both Kick and Twitch. Only On/Off is per channel.</div>}
             <div className="sheet">
               <div className="item"><div className="row">
                 <div><div className="t">Your language</div><div className="d">Anything not in {lang} gets translated for you. You're welcome.</div></div>
@@ -185,61 +246,6 @@ export default function Dashboard() {
                   {Object.entries(LANGS).map(([c, n]) => <option key={c} value={c}>{n}</option>)}
                 </select>
               </div></div>
-
-              <div className="item">
-                <div className="row">
-                  <div>
-                    <div className="t">Languages to ignore</div>
-                    <div className="d">Languages you already understand. The bot will leave these alone.</div>
-                  </div>
-                  <span className="d">{(s.ignoredLanguages || []).length} ignored</span>
-                </div>
-                <div className="chips" style={{ marginTop: 8 }}>
-                  {Object.entries(LANGS)
-                    .filter(([c]) => c !== (s.language || 'en'))
-                    .map(([code, name]) => {
-                      const isIgnored = (s.ignoredLanguages || []).includes(code);
-                      return (
-                        <button
-                          key={code}
-                          type="button"
-                          className="chip"
-                          style={{
-                            cursor: 'pointer',
-                            backgroundColor: isIgnored ? '#ec4899' : 'rgba(255,255,255,0.06)',
-                            color: isIgnored ? '#fff' : 'inherit',
-                            borderColor: isIgnored ? '#ec4899' : 'rgba(255,255,255,0.1)'
-                          }}
-                          onClick={() => toggleIgnored(code)}
-                          title={isIgnored ? `Click to translate ${name}` : `Click to ignore ${name}`}
-                        >
-                          {name} {isIgnored ? '✕' : '+'}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              <div className="item"><div className="row">
-                <div><div className="t">Pause between translations</div><div className="d">Per person, so nobody hogs the bot. Anything under 3 words is left alone, so lol and gg stay lol and gg.</div></div>
-                <select aria-label="Pause between translations per person" value={s.cooldown ?? 30} onChange={e => save({ cooldown: Number(e.target.value) }, { cooldown: Number(e.target.value) })}>
-                  {pauses.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
-                </select>
-              </div></div>
-
-              <div className="item">
-                <div className="row"><div className="t">Skip list</div><span className="d">{(s.skip || []).length} of 50</span></div>
-                <div className="d">The bot won't translate these chatters{(s.channels || []).length > 1 ? ' on Kick or Twitch' : ''}. Other bots, mostly.</div>
-                <form className="skipadd" onSubmit={e => { e.preventDefault(); const v = name.trim().replace(/^@+/, ''); if (v) skip({ skipAdd: v }, `${v} is skipped. Their messages stay as they are.`); }}>
-                  <input value={name} onChange={e => setName(e.target.value)} placeholder="Username" autoComplete="off" aria-label="Username" maxLength={40} />
-                  <button className="btn pink" type="submit">Add</button>
-                </form>
-                {skipMsg && <div className="skipnote" aria-live="polite">{skipMsg}</div>}
-                <div className="chips">
-                  {(s.skip || []).length === 0 && <span className="d">Nobody skipped yet. The bot treats everyone equally.</span>}
-                  {(s.skip || []).map(n => <span className="chip" key={n}>{n}<button type="button" aria-label={`Remove ${n}`} onClick={() => skip({ skipRemove: n }, `${n} is back on the menu.`)}>×</button></span>)}
-                </div>
-              </div>
             </div>
 
             <div className="lab">Bot reply</div>
@@ -265,11 +271,76 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="lab">Live translation tester</div>
+            <div className="lab">Commands</div>
             <div className="sheet">
               <div className="item">
-                <div className="d">Test how the bot detects and translates any foreign sentence in real time.</div>
-                <form className="skipadd" onSubmit={e => { e.preventDefault(); runTest(false); }}>
+                <div className="d">Type them in either chat.{s.mods ? ' You and your mods can.' : ''} Tap copy if you're lazy.</div>
+                <div className={`cmdcols${both ? '' : ' one'}`}>
+                  <div className="cc"><div className="ch">{both ? 'This chat' : 'In chat'}</div>
+                    <div className="cl"><code>!translate off</code><button type="button" className="cp" onClick={() => copy('!translate off')}>{copied === '!translate off' ? 'Copied' : 'Copy'}</button></div>
+                    <div className="cl"><code>!translate on</code><button type="button" className="cp" onClick={() => copy('!translate on')}>{copied === '!translate on' ? 'Copied' : 'Copy'}</button></div></div>
+                  {both && <div className="cc"><div className="ch">Both chats</div>
+                    <div className="cl"><code>!translate off all</code><button type="button" className="cp" onClick={() => copy('!translate off all')}>{copied === '!translate off all' ? 'Copied' : 'Copy'}</button></div>
+                    <div className="cl"><code>!translate on all</code><button type="button" className="cp" onClick={() => copy('!translate on all')}>{copied === '!translate on all' ? 'Copied' : 'Copy'}</button></div></div>}
+                </div>
+                <div className="row sub">
+                  <div><div className="t2">Mods can use the commands</div><div className="d">{s.mods ? 'You and your mods. They get the remote too.' : 'Just you. Mods can watch, not touch.'}</div></div>
+                  <button className="tog sm" role="switch" aria-checked={Boolean(s.mods)} aria-label="Let mods use the translate commands" onClick={() => save({ mods: !s.mods }, { mods: !s.mods })} />
+                </div>
+                <div className="row sub">
+                  <div><div className="t2">Is the bot awake?</div><div className="d">Sends one hello to your chat. Nothing is translated.</div></div>
+                  <button type="button" className="btn ghost small" disabled={helloing} onClick={sayHello}>{helloing ? 'Saying…' : 'Say hello'}</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="lab">Fine tuning</div>
+            <details className="sheet">
+              <summary><span><span className="t">Ignored languages, skip list, pause</span><div className="d">{ignored.length} ignored · {(s.skip || []).length} skipped · {pauseLabel === 'None' ? 'no' : pauseLabel} pause</div></span><span className="chev" /></summary>
+
+              <div className="item">
+                <div className="t">Languages to ignore</div>
+                <div className="d">Languages you already understand. The bot leaves these alone.</div>
+                <div className="chips">
+                  {ignored.length === 0 && <span className="d">Nothing ignored. Every foreign language gets translated.</span>}
+                  {ignored.map(c => <span className="chip" key={c}>{LANGS[c] || c}<button type="button" aria-label={`Stop ignoring ${LANGS[c] || c}`} onClick={() => toggleIgnored(c)}>×</button></span>)}
+                </div>
+                <div className="addrow">
+                  <select aria-label="Add a language to ignore" value={ignSel} onChange={e => setIgnSel(e.target.value)}>
+                    <option value="">Add a language…</option>
+                    {Object.entries(LANGS).filter(([c]) => c !== (s.language || 'en') && !ignored.includes(c)).map(([c, n]) => <option key={c} value={c}>{n}</option>)}
+                  </select>
+                  <button type="button" className="btn ghost small" disabled={!ignSel} onClick={() => { toggleIgnored(ignSel); setIgnSel(''); }}>Add</button>
+                </div>
+              </div>
+
+              <div className="item">
+                <div className="row"><div className="t">Skip list</div><span className="d">{(s.skip || []).length} of 50</span></div>
+                <div className="d">The bot won't translate these chatters{both ? ' on Kick or Twitch' : ''}. Other bots, mostly.</div>
+                <form className="skipadd" onSubmit={e => { e.preventDefault(); const v = name.trim().replace(/^@+/, ''); if (v) skip({ skipAdd: v }, `${v} is skipped. Their messages stay as they are.`); }}>
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="Username" autoComplete="off" aria-label="Username" maxLength={40} />
+                  <button className="btn pink" type="submit">Add</button>
+                </form>
+                {skipMsg && <div className="skipnote" aria-live="polite">{skipMsg}</div>}
+                <div className="chips">
+                  {(s.skip || []).length === 0 && <span className="d">Nobody skipped yet. The bot treats everyone equally.</span>}
+                  {(s.skip || []).map(n => <span className="chip" key={n}>{n}<button type="button" aria-label={`Remove ${n}`} onClick={() => skip({ skipRemove: n }, `${n} is back on the menu.`)}>×</button></span>)}
+                </div>
+              </div>
+
+              <div className="item"><div className="row">
+                <div><div className="t">Pause between translations</div><div className="d">Per person, so nobody hogs the bot. Anything under 3 words is left alone, so lol and gg stay lol and gg.</div></div>
+                <select aria-label="Pause between translations per person" value={s.cooldown ?? 30} onChange={e => save({ cooldown: Number(e.target.value) }, { cooldown: Number(e.target.value) })}>
+                  {pauses.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+                </select>
+              </div></div>
+            </details>
+
+            <div className="lab">Translation tester</div>
+            <details className="sheet">
+              <summary><span><span className="t">Try the bot on a sentence</span><div className="d">Set-up tool. Nothing reaches chat unless you press Send to chat.</div></span><span className="chev" /></summary>
+              <div className="item">
+                <form className="skipadd" style={{ marginTop: 0 }} onSubmit={e => { e.preventDefault(); runTest(false); }}>
                   <input
                     value={testText}
                     onChange={e => setTestText(e.target.value)}
@@ -280,19 +351,10 @@ export default function Dashboard() {
                   <button className="btn primary" type="submit" disabled={testLoading || !testText.trim()}>
                     {testLoading ? 'Translating…' : 'Translate'}
                   </button>
-                  <button
-                    className="btn pink"
-                    type="button"
-                    disabled={testLoading || !testText.trim()}
-                    onClick={() => runTest(true)}
-                    title="Send this translated test line to your live chat"
-                  >
-                    Send to Chat
-                  </button>
                 </form>
 
-                <div className="chips" style={{ marginTop: 10 }}>
-                  <span className="d" style={{ marginRight: 6 }}>Try sample:</span>
+                <div className="chips">
+                  <span className="d" style={{ marginRight: 6, alignSelf: 'center' }}>Try sample:</span>
                   {[
                     ['🇪🇸 Spanish', 'hola a todos buen stream bro'],
                     ['🇹🇷 Turkish', 'selam nasilsin abi yayin cok guzel'],
@@ -302,63 +364,39 @@ export default function Dashboard() {
                     ['🇷🇺 Russian', 'всем привет отличная игра спс за стрим'],
                     ['🇧🇷 Portuguese', 'salve galera muito boa jogada mano vlw']
                   ].map(([label, sample]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      className="chip"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => { setTestText(sample); runTest(false, sample); }}
-                    >
-                      {label}
-                    </button>
+                    <button key={label} type="button" className="chip btnchip" onClick={() => { setTestText(sample); runTest(false, sample); }}>{label}</button>
                   ))}
                 </div>
 
-                {testError && <p className="msg" style={{ marginTop: 12, color: '#ff6b6b' }}>{testError}</p>}
+                {testError && <p className="errtxt">{testError}</p>}
 
                 {testResult && (
-                  <div className="ex" style={{ marginTop: 14 }}>
+                  <div className="ex">
                     <div className="exh">
-                      Test Output: {testResult.flag} {testResult.langName} &rarr; {lang}
+                      Test output: {testResult.flag} {testResult.langName} &rarr; {lang}
                       {testResult.sentToChat && <span style={{ marginLeft: 8, color: '#4ade80' }}>✓ Sent to live chat</span>}
                     </div>
                     <div className="chatbox">
                       <div className="m"><span className="u" style={{ color: '#b48cff' }}>Viewer:</span> {testResult.text}</div>
                       <div className="m"><span className="u b">ChitChatBot:</span> {testResult.line}</div>
                     </div>
+                    <div style={{ marginTop: 12 }}>
+                      {!confirmSend
+                        ? <button type="button" className="btn ghost small" disabled={testLoading} onClick={() => setConfirmSend(true)}>Send to chat…</button>
+                        : <div className="confirm"><span>Post this line in your live {view === 'twitch' ? 'Twitch' : 'Kick'} chat? Real viewers will see it.</span>
+                            <button type="button" className="btn small" disabled={testLoading} onClick={() => runTest(true, testResult.text)}>Yes, post it</button>
+                            <button type="button" className="btn ghost small" onClick={() => setConfirmSend(false)}>Cancel</button></div>}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="lab">Commands</div>
-            <div className="sheet">
-              <div className="item">
-                <div className="d">Type them in either chat.{s.mods ? ' You and your mods can.' : ''}</div>
-                <div className={`cmdcols${(s.channels || []).length > 1 ? '' : ' one'}`}>
-                  <div className="cc"><div className="ch">{(s.channels || []).length > 1 ? 'This chat' : 'In chat'}</div><div className="cl"><code>!translate off</code><span className="d">off</span></div><div className="cl"><code>!translate on</code><span className="d">on</span></div></div>
-                  {(s.channels || []).length > 1 && <div className="cc"><div className="ch">Both chats</div><div className="cl"><code>!translate off all</code><span className="d">off</span></div><div className="cl"><code>!translate on all</code><span className="d">on</span></div></div>}
-                </div>
-                <div className="row sub">
-                  <div><div className="t2">Mods can use the commands</div><div className="d">{s.mods ? 'You and your mods. They get the remote too.' : 'Just you. Mods can watch, not touch.'}</div></div>
-                  <button className="tog sm" role="switch" aria-checked={Boolean(s.mods)} aria-label="Let mods use the translate commands" onClick={() => save({ mods: !s.mods }, { mods: !s.mods })} />
-                </div>
-              </div>
-            </div>
-
-            <div className="lab">Plan</div>
-            <div className="sheet">
-              <div className="item">
-                <div className="row"><div className="t" style={{ whiteSpace: 'nowrap' }}>Free plan</div><span className="d">{used.toLocaleString()} of {cap.toLocaleString()} characters. Plenty left.</span></div>
-                <div className="line"><i style={{ width: `${Math.min(100, (used / cap) * 100)}%` }} /></div>
-                {used >= cap && <div className="d" style={{ marginTop: 10 }}>You've used this month's free translations. The bot is quiet until next month.</div>}
-              </div>
-            </div>
+            </details>
 
             {!s.translatorReady && <p className="note">The translation key isn't set on the server yet.</p>}
           </section>
         )}
       </main>
+      {toast && <div className={`toast show${toast.err ? ' err' : ''}`} role="status">{toast.err ? toast.t : <><b>✓</b>{toast.t}</>}</div>}
     </>
   );
 }

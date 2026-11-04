@@ -156,3 +156,42 @@ select:hover{border-color:#3a484b}
 /* Kick and Twitch cards get the same filled background as the other sections; the colored border stays */
 .plat{background:var(--card)}
 .plat.off{background:var(--card)}
+
+/* dashboard v2: channel status line, usage card up top, collapsible sections, toast */
+.wh{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.wh i{width:8px;height:8px;border-radius:50%;background:#3a4548;flex:none}
+.plat.k.lk:not(.paused) .wh i{background:#53fc18}.plat.t.lk:not(.paused) .wh i{background:#9146ff}
+.disc{background:none;border:0;padding:0;color:var(--muted);font:600 12.5px system-ui;cursor:pointer;text-decoration:underline;align-self:flex-start}
+.disc:hover{color:#e07a7a}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#1a1416;border:1px solid #4a2a33;border-radius:8px;padding:8px 10px;font-size:13.5px}
+.confirm>span{flex:1 1 100%;color:#ffb3c4}
+.btn.danger{background:#e07a7a;border-color:#e07a7a;color:#220808}
+.btn.ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+.btn.ghost:hover{border-color:#3a484b}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.usage{margin-top:4px}
+.usage .big{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.usage .num{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.usage .num small{font-size:14px;font-weight:500;color:var(--muted);letter-spacing:0}
+.usage .line{height:6px;margin-top:12px}
+.usage .line i{transition:width .3s,background .3s}
+.usage.low .line i{background:#ffc46b}.usage.out .line i{background:#ff7a7a}
+.unote{margin-top:10px;font-size:14px;color:var(--muted)}
+.usage.low .unote{color:#ffc46b}.usage.out .unote{color:#ff9d9d}
+.labnote{margin:-2px 4px 8px;color:var(--muted);font-size:13px}
+.cp{background:#1b2325;border:1px solid var(--line);color:var(--muted);border-radius:6px;font:600 12px system-ui;padding:3px 9px;cursor:pointer}
+.cp:hover{color:var(--fg);border-color:#3a484b}
+.chip.btnchip{padding:5px 12px;cursor:pointer;color:var(--fg);font-family:inherit}
+.chip.btnchip:hover{border-color:#3a484b}
+.addrow{display:flex;gap:8px;margin-top:12px}.addrow select{flex:1}
+.errtxt{color:#ff9d9d;font-size:14px;margin:12px 0 0}
+details.sheet>summary{list-style:none;cursor:pointer;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+details.sheet>summary::-webkit-details-marker{display:none}
+details.sheet>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+details.sheet>summary .chev{width:10px;height:10px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .2s;margin-right:4px;flex:none}
+details.sheet[open]>summary .chev{transform:rotate(-135deg)}
+details.sheet[open]>summary{border-bottom:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,0);background:#1b2325;border:1px solid var(--line);border-radius:99px;padding:8px 16px;font-size:14px;font-weight:600;z-index:20;white-space:nowrap;max-width:calc(100vw - 32px);overflow:hidden;text-overflow:ellipsis;animation:toastin .2s ease-out}
+.toast.err{border-color:#5a3340;color:#ff9db5}
+.toast b{color:#4ade80;margin-right:6px}
+@keyframes toastin{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
