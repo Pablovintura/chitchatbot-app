@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Status = {
   connected: boolean; platform?: 'kick' | 'twitch'; channels?: { platform: 'kick' | 'twitch'; name: string; enabled?: boolean; by?: string; at?: string }[]; kickReady?: boolean; twitchReady?: boolean; translatorReady?: boolean; channel?: string; admin?: boolean;
-  enabled?: boolean; by?: string; at?: string; cooldown?: number; language?: string; mods?: boolean; used?: number; cap?: number; skip?: string[]; replyStyle?: 'colon' | 'lang'; replyFlag?: boolean; replyOriginal?: boolean;
+  enabled?: boolean; by?: string; at?: string; cooldown?: number; language?: string; ignoredLanguages?: string[]; mods?: boolean; used?: number; cap?: number; skip?: string[]; replyStyle?: 'colon' | 'lang'; replyFlag?: boolean; replyOriginal?: boolean;
 };
 
 const LANGS: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
@@ -92,6 +92,13 @@ export default function Dashboard() {
     setSkipMsg(ok);
     if ('skipAdd' in body) setName('');
   };
+  const toggleIgnored = (code: string) => {
+    const current = new Set(s?.ignoredLanguages || []);
+    if (current.has(code)) current.delete(code);
+    else current.add(code);
+    const list = Array.from(current);
+    save({ ignoredLanguages: list }, { ignoredLanguages: list });
+  };
   const out = async (p?: string) => { await fetch('/api/kick/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platform: p || view }) }); setMsg(''); setView(''); load(); };
 
   const runTest = async (sendToChat = false, sampleText?: string) => {
@@ -178,6 +185,40 @@ export default function Dashboard() {
                   {Object.entries(LANGS).map(([c, n]) => <option key={c} value={c}>{n}</option>)}
                 </select>
               </div></div>
+
+              <div className="item">
+                <div className="row">
+                  <div>
+                    <div className="t">Languages to ignore</div>
+                    <div className="d">Languages you already understand. The bot will leave these alone.</div>
+                  </div>
+                  <span className="d">{(s.ignoredLanguages || []).length} ignored</span>
+                </div>
+                <div className="chips" style={{ marginTop: 8 }}>
+                  {Object.entries(LANGS)
+                    .filter(([c]) => c !== (s.language || 'en'))
+                    .map(([code, name]) => {
+                      const isIgnored = (s.ignoredLanguages || []).includes(code);
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          className="chip"
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: isIgnored ? '#ec4899' : 'rgba(255,255,255,0.06)',
+                            color: isIgnored ? '#fff' : 'inherit',
+                            borderColor: isIgnored ? '#ec4899' : 'rgba(255,255,255,0.1)'
+                          }}
+                          onClick={() => toggleIgnored(code)}
+                          title={isIgnored ? `Click to translate ${name}` : `Click to ignore ${name}`}
+                        >
+                          {name} {isIgnored ? '✕' : '+'}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
 
               <div className="item"><div className="row">
                 <div><div className="t">Pause between translations</div><div className="d">Per person, so nobody hogs the bot. Anything under 3 words is left alone, so lol and gg stay lol and gg.</div></div>

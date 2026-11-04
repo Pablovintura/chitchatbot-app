@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
   if ('replyStyle' in b) row.reply_style = b.replyStyle === 'lang' ? 'lang' : 'colon';
   if ('replyFlag' in b) row.reply_flag = b.replyFlag !== false;
   if ('replyOriginal' in b) row.reply_original = b.replyOriginal === true;
+  if ('ignoredLanguages' in b && Array.isArray(b.ignoredLanguages)) {
+    row.languages = b.ignoredLanguages.filter((l: string) => typeof l === 'string' && LANGUAGES[l]);
+  }
   if ('skipAdd' in b || 'skipRemove' in b) {
     const { data } = await db().from('settings').select('skip_list').eq('channel_id', ch.id).maybeSingle();
     let list: string[] = Array.isArray(data?.skip_list) ? data.skip_list : [];
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
   dropSettingsCache(ch.id);
   // Language, pause, mods and the skip list are one setting for both channels. Only on/off is per channel.
   const shared: Record<string, unknown> = {};
-  for (const k of ['cooldown_seconds', 'home_language', 'mods_can_toggle', 'skip_list', 'reply_style', 'reply_flag', 'reply_original']) if (k in row) shared[k] = row[k];
+  for (const k of ['cooldown_seconds', 'home_language', 'languages', 'mods_can_toggle', 'skip_list', 'reply_style', 'reply_flag', 'reply_original']) if (k in row) shared[k] = row[k];
   if (Object.keys(shared).length) {
     for (const o of (await accountChannels(ch.account_id)).filter(c => c.connected && c.id !== ch.id)) {
       await db().from('settings').upsert({ channel_id: o.id, updated_at: row.updated_at, ...shared }, { onConflict: 'channel_id' });
@@ -56,5 +59,5 @@ export async function POST(req: NextRequest) {
     }
   }
   if ('enabled' in row) await db().from('settings').update({ toggled_by: 'the dashboard', toggled_at: new Date().toISOString() }).eq('channel_id', ch.id).then(() => {}, () => {}); // note only; fine if the columns aren't there yet
-  return NextResponse.json({ ok: true, skip: row.skip_list });
+  return NextResponse.json({ ok: true, skip: row.skip_list, ignoredLanguages: row.languages });
 }

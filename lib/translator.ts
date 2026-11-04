@@ -1,5 +1,6 @@
 import { cleanForDetect, detectLanguage, flagFor, looksEnglish } from './detect';
 import { normalizeSlang } from './slang';
+import { isContentSafe } from './safety';
 import { db } from './supabase';
 import { sendChat as kickSend } from './kick';
 import { sendChat as twitchSend } from './twitch';
@@ -15,7 +16,7 @@ const DAILY_MAX = Number(process.env.DAILY_TRANSLATIONS) || 8000; // safety stop
 // Every language the bot can translate into (the same ones it can recognise in chat).
 export const LANGUAGES: Record<string, string> = { en: 'English', es: 'Spanish', pt: 'Portuguese', fr: 'French', de: 'German', it: 'Italian', nl: 'Dutch', pl: 'Polish', tr: 'Turkish', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese', tl: 'Filipino', sv: 'Swedish', ro: 'Romanian', ru: 'Russian', uk: 'Ukrainian', ar: 'Arabic', hi: 'Hindi', zh: 'Chinese', ja: 'Japanese', ko: 'Korean', th: 'Thai' };
 
-type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; skip: Set<string>; style: 'colon' | 'lang'; flag: boolean; orig: boolean; at: number };
+type Settings = { enabled: boolean; cooldown: number; home: string; mods: boolean; skip: Set<string>; ignored: Set<string>; style: 'colon' | 'lang'; flag: boolean; orig: boolean; at: number };
 // Name of the language a chat message was in, written in the streamer's own language ("Spanisch" for a German streamer). Falls back to English.
 const nameCache = new Map<string, Intl.DisplayNames | null>();
 function langLabel(code: string, home: string): string {
@@ -69,7 +70,7 @@ async function settingsFor(channelId: string): Promise<Settings> {
   // Every column, so one missing column can't make the whole read fail (and switch the translator off).
   const { data } = await db().from('settings').select('*').eq('channel_id', channelId).maybeSingle();
   const home = String(data?.home_language || 'en');
-  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), skip: new Set<string>((Array.isArray(data?.skip_list) ? data.skip_list : []).map((x: string) => skipKey(String(x)))), style: data?.reply_style === 'lang' ? 'lang' as const : 'colon' as const, flag: data?.reply_flag !== false, orig: data?.reply_original === true, at: Date.now() };
+  const s = { enabled: Boolean(data?.enabled), cooldown: Number(data?.cooldown_seconds ?? 30), home: LANGUAGES[home] ? home : 'en', mods: Boolean(data?.mods_can_toggle), skip: new Set<string>((Array.isArray(data?.skip_list) ? data.skip_list : []).map((x: string) => skipKey(String(x)))), ignored: new Set<string>((Array.isArray(data?.languages) ? data.languages : []).map(String)), style: data?.reply_style === 'lang' ? 'lang' as const : 'colon' as const, flag: data?.reply_flag !== false, orig: data?.reply_original === true, at: Date.now() };
   cache.set(channelId, s);
   return s;
 }
@@ -170,6 +171,40 @@ async function countUsage(accountId: string, chars: number) {
 
 export type ChatEvent = { platform?: 'kick' | 'twitch'; messageId: string | null; broadcasterId: string; senderId: string; username: string; text: string; isMod?: boolean };
 
+function wordSimilarity(w1: string, w2: string): number {
+  if (w1 === w2) return 1;
+  if (!w1 || !w2) return 0;
+  if (w1.startsWith(w2) || w2.startsWith(w1)) {
+    return Math.min(w1.length, w2.length) / Math.max(w1.length, w2.length);
+  }
+  const len1 = w1.length, len2 = w2.length;
+  if (Math.abs(len1 - len2) > 3) return 0;
+  let matches = 0;
+  const bigrams1 = new Set<string>();
+  for (let i = 0; i < len1 - 1; i++) bigrams1.add(w1.slice(i, i + 2));
+  for (let i = 0; i < len2 - 1; i++) {
+    if (bigrams1.has(w2.slice(i, i + 2))) matches++;
+  }
+  return (2 * matches) / ((len1 - 1) + (len2 - 1) || 1);
+}
+
+function isSameSentence(inText: string, outText: string): boolean {
+  const wordsOf = (x: string) => x.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+  const inWords = wordsOf(inText);
+  const outWords = wordsOf(outText);
+  if (!inWords.length || !outWords.length) return false;
+  let matched = 0;
+  for (const iw of inWords) {
+    for (const ow of outWords) {
+      if (wordSimilarity(iw, ow) >= 0.75) {
+        matched++;
+        break;
+      }
+    }
+  }
+  return (matched / inWords.length) >= 0.65;
+}
+
 // Runs after the webhook has already been answered. Never throws.
 export async function onChat(ev: ChatEvent) {
   try {
@@ -180,7 +215,7 @@ export async function onChat(ev: ChatEvent) {
       if (seen.size > 5000) seen.delete(seen.values().next().value as string);
     }
     const msg = ev.text.trim();
-    if (!msg || OWN_LINE.test(msg)) return; // our own lines
+    if (!msg || OWN_LINE.test(msg) || !isContentSafe(msg)) return; // our own lines or unsafe content
     if (ev.platform !== 'twitch' && process.env.KICK_BOT_USER_ID && ev.senderId === process.env.KICK_BOT_USER_ID) return;
 
     const ch = await channelFor(ev.platform || 'kick', ev.broadcasterId);
@@ -222,10 +257,10 @@ export async function onChat(ev: ChatEvent) {
     const times = (recent.get(channelId) || []).filter(t => now - t < 60000);
     if (times.length >= PER_MINUTE || (busy.get(channelId) || 0) >= 3) return;
 
-    // 1. Language check in local RAM first: exits immediately for English / untranslatable chat (saves Supabase reads)
+    // 1. Language check in local RAM first: exits immediately for English / untranslatable chat / ignored languages
     let source = detectLanguage(msg);
     if (!source && s.home !== 'en' && looksEnglish(msg)) source = 'en';
-    if (!source || source === s.home) return;
+    if (!source || source === s.home || s.ignored.has(source)) return;
 
     if (!underDailyMax()) return;
     if ((await usedThisMonth(ch.account_id)) >= FREE_CAP) return; // free plan used up: quiet until next month
@@ -243,7 +278,7 @@ export async function onChat(ev: ChatEvent) {
       dayCount++;
       const english = await translate(body, source, s.home);
       const plain = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-      if (!english || plain(english) === plain(body)) return;
+      if (!english || plain(english) === plain(body) || isSameSentence(body, english) || !isContentSafe(english)) return;
 
       // Mostly the same words in and out = it was English after all (he's famous -> He is famous).
       // Filter out game titles, streamer username, and short tokens before checking overlap.
