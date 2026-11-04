@@ -20,7 +20,7 @@ const SLANG_DICTS: Record<string, Record<string, string>> = {
     'qnd': 'quando', 'qto': 'quanto', 'sdds': 'saudades', 'q': 'que',
     // Gamer chat
     'mitou': 'legend', 'tiltou': 'tilted', 'trollou': 'trolled', 'trolar': 'troll',
-    'patão': 'noob', 'jogar fino': 'play well', 'jogão': 'great match'
+    'patão': 'noob', 'jogão': 'great match'
   },
   fr: {
     'slt': 'salut', 'cv': 'ça va', 'bcp': 'beaucoup', 'stp': "s'il te plaît",
@@ -80,7 +80,7 @@ const SLANG_DICTS: Record<string, Record<string, string>> = {
     'ng': 'người', 'bt': 'biết', 'ntn': 'như thế nào', 'bh': 'bây giờ', 'ms': 'mới',
     'vs': 'với', 'mik': 'mình',
     // Gamer chat
-    'gà': 'noob', 'bắn gà': 'bad aim', 'hack': 'cheater'
+    'gà': 'noob', 'hack': 'cheater'
   },
   tl: {
     'd2': 'dito', 'aq': 'ako', 'bkit': 'bakit', 'lam': 'alam', 'kc': 'kasi',
@@ -122,15 +122,17 @@ const SLANG_DICTS: Record<string, Record<string, string>> = {
   }
 };
 
-const LAUGHTER: [RegExp, string][] = [
-  [/\b(?:j[aeiou]){2,}j?\b/gi, 'haha'],
+// JavaScript's \b only understands A-Z, so Cyrillic uses explicit "not next to a letter" checks instead.
+const VI_FOOD = new Set(['rán', 'nướng', 'luộc', 'kho', 'xào', 'chiên', 'quay', 'hầm', 'nấu', 'cơm', 'phở', 'bún', 'xé', 'tần']);
+const LAUGHTER: [RegExp, string, string?][] = [
+  [/\b(?:j[aeiou]){2,}j?\b/gi, 'haha', 'pl'], // third item: a language where this pattern is a real word (Polish "jaja" = eggs), so it is skipped
   [/\b(?:k{3,}|(?:hue){2,})\b/gi, 'haha'],
-  [/[wW]{3,}/g, ' (haha) '],
+  [/(?<![A-Za-z0-9])[wW]{3,}(?![A-Za-z0-9])/g, ' (haha) '], // Japanese chat glues www to the sentence (面白いwww); English "awwww" has a letter before it, so it is left alone
   [/草+/g, ' (haha) '],
   [/[ㅋ]{2,}/g, ' haha '],
   [/[ㅎ]{2,}/g, ' haha '],
   [/\b5{3,}\b/g, 'haha'],
-  [/\b(?:[ах]{4,}|ы{3,})\b/gi, 'хаха']
+  [/(?<![\p{L}\p{N}])(?:[ах]{4,}|ы{3,})(?![\p{L}\p{N}])/giu, 'хаха']
 ];
 
 /**
@@ -142,15 +144,18 @@ export function normalizeSlang(text: string, sourceLang?: string): string {
   let out = text;
 
   // 1. Normalize laughter patterns
-  for (const [re, rep] of LAUGHTER) {
+  for (const [re, rep, skipLang] of LAUGHTER) {
+    if (skipLang && sourceLang === skipLang) continue;
     out = out.replace(re, rep);
   }
 
   // 2. Tokenize words vs delimiters for accurate O(N) word substitution
-  const dict = sourceLang ? SLANG_DICTS[sourceLang] : null;
+  const dict = sourceLang && Object.hasOwn(SLANG_DICTS, sourceLang) ? SLANG_DICTS[sourceLang] : null;
+  // Own keys only: a chatter typing "constructor" or "toString" must not pull in JavaScript's built-ins.
+  const look = (d: Record<string, string>, k: string) => (Object.hasOwn(d, k) ? d[k] : undefined);
   const tokens = out.split(/([^\p{L}\p{N}']+)/u);
 
-  const res = tokens.map(token => {
+  const res = tokens.map((token, i) => {
     // If not a word token, keep as-is
     if (!token || !/[\p{L}\p{N}]/u.test(token)) return token;
 
@@ -163,15 +168,20 @@ export function normalizeSlang(text: string, sourceLang?: string): string {
     const lower1 = folded1.toLowerCase();
 
     // Check dictionary in order:
+    // Vietnamese "gà" is noob slang, but also just chicken: leave it alone next to a cooking word ("gà rán").
+    if (sourceLang === 'vi' && lower2 === 'gà') {
+      const next = (tokens[i + 2] || '').toLowerCase();
+      if (VI_FOOD.has(next)) return folded2;
+    }
     // a. Direct lookup on folded2
-    if (dict && dict[lower2]) return dict[lower2];
+    if (dict) { const a = look(dict, lower2); if (a !== undefined) return a; }
     // b. Lookup on folded1
-    if (dict && dict[lower1]) return dict[lower1];
+    if (dict) { const b = look(dict, lower1); if (b !== undefined) return b; }
 
     if (!dict) {
       for (const d of Object.values(SLANG_DICTS)) {
-        if (d[lower2]) return d[lower2];
-        if (d[lower1]) return d[lower1];
+        const a = look(d, lower2); if (a !== undefined) return a;
+        const b = look(d, lower1); if (b !== undefined) return b;
       }
     }
 
@@ -179,7 +189,12 @@ export function normalizeSlang(text: string, sourceLang?: string): string {
     return folded2;
   });
 
-  return res.join('').replace(/\s+/g, ' ').trim();
+  let joined = res.join('');
+  // Japanese and Thai are written without spaces, so a whole sentence is one "word". Longer slang entries are found inside it instead.
+  if (dict && (sourceLang === 'ja' || sourceLang === 'th')) {
+    for (const [k, v] of Object.entries(dict)) if (k.length >= 3 && joined.includes(k)) joined = joined.split(k).join(v);
+  }
+  return joined.replace(/\s+/g, ' ').trim();
 }
 
 /**

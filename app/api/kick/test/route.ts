@@ -3,7 +3,7 @@ import { currentChannel } from '@/lib/session';
 import { sendChat as kickSend } from '@/lib/kick';
 import { sendChat as twitchSend } from '@/lib/twitch';
 import { detectLanguage, flagFor } from '@/lib/detect';
-import { translateText, LANGUAGES } from '@/lib/translator';
+import { translateText, testGate, LANGUAGES } from '@/lib/translator';
 import { db } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
   // 1. Live translation test mode (called from dashboard test box)
   if (typeof b.text === 'string' && b.text.trim()) {
     try {
-      const text = b.text.trim();
+      const text = b.text.trim().slice(0, 300);
+      const stop = testGate(ch.account_id, 'translate') || (b.sendToChat ? testGate(ch.account_id, 'post') : null);
+      if (stop) return NextResponse.json({ error: stop }, { status: 429 });
       const detected = detectLanguage(text);
       if (!detected) return NextResponse.json({ error: "Couldn't tell what language that is. Try a longer sentence, the bot isn't psychic." }, { status: 422 });
       const flag = flagFor(detected);
@@ -26,7 +28,7 @@ export async function POST(req: NextRequest) {
       const { data } = await db().from('settings').select('home_language, reply_style, reply_flag, reply_original').eq('channel_id', ch.id).maybeSingle();
       const home = data?.home_language || 'en';
 
-      const translated = await translateText(text, detected, home);
+      const translated = await translateText(text, detected, home, ch.id, ch.account_id);
       const who = 'TestUser' + (data?.reply_style === 'lang' ? ` (${LANGUAGES[detected] || detected})` : '');
       const flagPart = data?.reply_flag !== false ? `${flag} ` : '';
       const origPart = data?.reply_original ? ` [${text}]` : '';
@@ -53,6 +55,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Default ping test ("Say hello")
+  const stop = testGate(ch.account_id, 'post');
+  if (stop) return NextResponse.json({ error: stop }, { status: 429 });
   try {
     const line = '🌐 ChitChatBot: hola chat, I am alive!';
     if (ch.platform === 'twitch') await twitchSend(ch.platform_user_id, line); else await kickSend(ch.id, line);

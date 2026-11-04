@@ -19,11 +19,11 @@ const BANNED_PATTERNS: RegExp[] = [
   /\bm+a+r+i+c+[oó]+n+\b/i,
   /\bv+i+a+d+[aãá]+o+\b/i,
   /\bn+e+g+r+[oó]+s?\s+d+e?\s+m+i+e+r+d+a+\b/i,
-  // Russian slurs / hate terms
-  /\b[хx][уy][йj][яеёию]?\w*\b/iu,
-  /\b[пp][иiеe][дd][оoаa][рr]\w*\b/iu,
-  /\b[чc][уy][рr][кk][аaеeиi]?\b/iu,
-  /\b[хx][оo][хx][оo][лl]\w*\b/iu
+  // Russian slurs / hate terms. (?<!..) and (?!..) instead of \b, because \b does not work next to Cyrillic letters.
+  /(?<![\p{L}\p{N}])[хx][уy][йj][яеёию]?\p{L}*/iu,
+  /(?<![\p{L}\p{N}])[пp][иiеe][дd][оoаa][рr]\p{L}*/iu,
+  /(?<![\p{L}\p{N}])[чc][уy][рr][кk][аaеeиi]?(?![\p{L}\p{N}])/iu,
+  /(?<![\p{L}\p{N}])[хx][оo][хx][оo][лl]\p{L}*/iu
 ];
 
 /**
